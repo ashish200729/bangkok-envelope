@@ -6,13 +6,18 @@
   "exports": {
     ".": "./src/index.ts",
     "./schema": "./src/schema/index.ts",
-    "./env": "./src/env.ts"
+    "./env": "./src/env.ts",
+    "./site": "./src/site.ts"
   },
   "scripts": {
     "typecheck": "tsc",
     "generate": "dotenv -e ../../apps/web/.env.local -- drizzle-kit generate",
     "migrate": "dotenv -e ../../apps/web/.env.local -- drizzle-kit migrate",
-    "studio": "dotenv -e ../../apps/web/.env.local -- drizzle-kit studio"
+    "studio": "dotenv -e ../../apps/web/.env.local -- drizzle-kit studio",
+    "test": "vitest run",
+    "seed:fetch": "tsx seed/fetch-osm.ts",
+    "seed:load": "dotenv -e ../../apps/web/.env.local -- tsx seed/load-site.ts",
+    "test:db": "dotenv -e ../../apps/web/.env.local -- vitest run src/site-queries.test.ts"
   },
   "dependencies": {
     "@t3-oss/env-core": "catalog:",
@@ -26,6 +31,8 @@
     "@types/pg": "catalog:",
     "dotenv-cli": "catalog:",
     "drizzle-kit": "catalog:",
-    "typescript": "catalog:"
+    "tsx": "catalog:",
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }
