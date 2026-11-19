@@ -24,7 +24,7 @@ const PILL: Record<CheckStatus, { label: string; className: string }> = {
   pass: { label: "Pass", className: "bg-pass/12 text-pass ring-pass/30" },
   fail: { label: "Fail", className: "bg-fail/12 text-fail ring-fail/30" },
   warn: { label: "Check", className: "bg-warn/15 text-warn ring-warn/35" },
-  "n/a": { label: "Off", className: "bg-muted text-muted-foreground ring-border" },
+  "n/a": { label: "N/A", className: "bg-muted text-muted-foreground ring-border" },
 };
 
 export function StatusPill({ status, className }: { status: CheckStatus; className?: string }) {

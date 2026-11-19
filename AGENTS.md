@@ -282,7 +282,9 @@ Rules learned the hard way:
 - Terra Draw wants mutable coordinate arrays; the engine's are readonly. Convert with `.map(([lng, lat]) => [lng, lat])`.
 - MapLibre and Terra Draw cannot parse OKLCH; map colours live as hex in `components/map/colors.ts`.
 - Development builds expose `window.__envelopeMap` (MapLibre map) and `window.__envelopeDraw` (controller, with `debug()`) for Playwright. They are not set in production.
-- deck.gl (`MapLibreOverlay` from `@deck.gl/maplibre`, interleaved) is installed and proven in a spike; it is reserved for the 3D envelope and designs (phase 4). Do not use `react-map-gl` or `@deck.gl/mapbox`.
+- deck.gl (`MapLibreOverlay` from `@deck.gl/maplibre`, interleaved) draws the envelope and designs (`components/map/envelope-layers.ts`, decision 40). Do not use `react-map-gl` or `@deck.gl/mapbox`. Never set `parameters.depthWriteEnabled` on a layer: it leaks GL state across MapLibre's passes. Development builds expose `window.__envelopeDeck` (`layers()`, `view()`, `pick(x, y)`).
+- The engine runs in a Web Worker behind a latest-wins scheduler (`lib/engine/*`); components read `useEngineResult()` (`idle | computing(previous) | ready | invalid`). Zod is configured jitless before any app code (`src/instrumentation-client.ts`, decision 39) so the CSP sees no eval.
+- The right column is tabs: Plot (`components/panel/**`), Rules and Designs (`components/results/**`, helpers in `lib/results/**`).
 
 ## 4. Environment and services
 

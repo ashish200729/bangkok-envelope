@@ -198,3 +198,19 @@ In production `GET /api/health` answers `{ status, database: { ok } }` (200 or 5
 - `'unsafe-inline'` in `script-src` because Next's App Router inlines its bootstrap and flight data; nonces would make every page dynamic. `'unsafe-eval'` is added only in development (React refresh).
 - MapLibre loads its style, tiles, glyphs and sprites from tiles.openfreemap.org and starts its worker from a `blob:` URL.
 - Checked in Chrome against a production build: the map canvas renders, the plot context loads, no CSP violations in the console; the full e2e suite passes against the dev server with the dev policy. deck.gl is not on the page yet; if it (or loaders.gl) needs WebAssembly, add `'wasm-unsafe-eval'` to `script-src` and check again.
+
+## 39. The engine in a Web Worker under the CSP, and Zod without eval
+
+The engine runs in a module Web Worker (`apps/web/src/lib/engine/engine.worker.ts`, created with `new Worker(new URL("./engine.worker.ts", import.meta.url), { type: "module" })`). Turbopack serves it from `/_next/static/chunks/` in development and in production, so `worker-src 'self'` covers it; deck.gl 9.4 with luma.gl draws the envelope and designs without WebAssembly or eval. No CSP directive was added. Checked in Chrome against `next build && next start` (no `SKIP_ENV_VALIDATION`): no `securitypolicyviolation` events in the page or the worker.
+
+One violation did show up: Zod 4 probes for eval with `Function("")` when it builds its first object schema, to decide whether to compile faster parsers. The probe is caught (Zod falls back to its normal parser), but Chrome reports it. `apps/web/src/lib/engine/zod-jitless.ts` calls `config({ jitless: true })`; it is imported by `src/instrumentation-client.ts`, which Next runs before any app code, and first in the worker's `handle.ts`, so the probe never runs. Validation is unchanged. Adding `'unsafe-eval'` to allow the probe would have been the wrong trade.
+
+If the worker cannot start (an old browser or a stricter embedder), the runner evaluates on the main thread instead (`runner.ts`), with the same input validation.
+
+## 40. How the envelope and designs are drawn
+
+- One `MapLibreOverlay` (interleaved, so it shares the depth buffer with the basemap's 3D buildings), created once after the map loads; layers are replaced through `setProps` with stable ids and data memoised per result object, so dragging a corner rebuilds attributes only when a new result arrives. Layers sit before `plot-sides-road`, so the plot outline, corner handles and labels stay on top for editing.
+- Each envelope slice is a `SolidPolygonLayer` polygon whose vertices carry z = `z0M` and whose elevation is `z1M − z0M`: deck.gl's side shader puts the bottom of each wall at the vertex z and the top at z + elevation, and the top cap at z + elevation, so a slice spans exactly [z0, z1). Verified visually (stepped bands from 0 to 111 m on the sample, a 9 m step and the road plane's slope) and through picking (hovering a band reports its z range).
+- A depth-only pass (the same slabs, fully transparent) is drawn before the tinted pass, so only the front-most faces are tinted (deck.gl's depth test is less-equal). Without it, overlapping translucent 1 m bands striped heavily. Crisp edges are a `PathLayer`: the ground and top outlines, rings at every step and every 5 m, and vertical lines at real corners (arc segments skipped).
+- A selected design's floors are drawn first, then the envelope as a ghost (lower alpha), depth-tested against the floors. Switching off depth writes for the ghost instead (`parameters.depthWriteEnabled`) leaked GL state across MapLibre's interleaved passes and blanked the floors, so it is not used.
+- The 3D camera looks from bearing 120°. From the old -20° a 177 m neighbour immediately south of the sample plot (OSM 4451674572) hid the envelope completely; that is the real site, so the camera moves rather than the building.

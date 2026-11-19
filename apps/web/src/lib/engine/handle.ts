@@ -1,3 +1,4 @@
+import "./zod-jitless";
 import { engineInputSchema, evaluate } from "@envelope/engine";
 import type { EngineReply } from "./protocol";
 
