@@ -11,7 +11,7 @@ import {
   STUDY_AREA,
 } from "@envelope/db/site";
 import { zValidator } from "@hono/zod-validator";
-import { type Context, Hono } from "hono";
+import { type Context, Hono, type MiddlewareHandler } from "hono";
 import type { ContentfulStatusCode } from "hono/utils/http-status";
 import { z } from "zod";
 import type { ApiError } from "../app";
@@ -58,6 +58,18 @@ function invalid(
   return fail(c, 400, "invalid_request", `${where}${issue?.message ?? "Invalid request"}`);
 }
 
+/**
+ * The JSON validator reads any other content type as an empty object, which would answer
+ * "vertices: expected array" to a client that did send vertices.
+ */
+const requireJson: MiddlewareHandler = async (c, next) => {
+  const type = c.req.header("content-type")?.split(";")[0]?.trim().toLowerCase();
+  if (type !== "application/json") {
+    return fail(c, 415, "unsupported_media_type", "Send the body as JSON (application/json)");
+  }
+  await next();
+};
+
 function boundsOf(vertices: Position[]): Bbox {
   const lngs = vertices.map((v) => v[0]);
   const lats = vertices.map((v) => v[1]);
@@ -87,7 +99,7 @@ export function siteRoutes(deps: SiteDeps) {
         data,
       });
     })
-    .post("/plot-context", zValidator("json", plotContextBody, invalid), async (c) => {
+    .post("/plot-context", requireJson, zValidator("json", plotContextBody, invalid), async (c) => {
       const { vertices } = c.req.valid("json");
       c.header("Cache-Control", "no-store");
       const plotKm2 = bboxAreaKm2(boundsOf(vertices));

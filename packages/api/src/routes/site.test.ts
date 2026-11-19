@@ -120,6 +120,31 @@ describe("POST /api/site/plot-context", () => {
     const { app } = appWith();
     const res = await postPlot(app, '{"vertices":[[NaN,13.74],[100.56,13.74],[100.56,13.75]]}');
     expect(res.status).toBe(400);
+    expect((await errorCode(res)).code).toBe("invalid_request");
+  });
+
+  it("rejects a body that is not JSON with the documented code", async () => {
+    const { app, calls } = appWith();
+    const res = await postPlot(app, '{"vertices":[[100.56,13.74],');
+    expect(res.status).toBe(400);
+    expect((await errorCode(res)).code).toBe("invalid_request");
+    expect(calls.plots).toHaveLength(0);
+  });
+
+  it("says to send JSON when the content type is not JSON, instead of 'expected array'", async () => {
+    const { app, calls } = appWith();
+    for (const type of ["text/plain", "application/x-www-form-urlencoded"]) {
+      const res = await postPlot(app, { vertices: PLOT.slice(0, 3) }, { "Content-Type": type });
+      expect(res.status).toBe(415);
+      expect(await errorCode(res)).toMatchObject({ code: "unsupported_media_type" });
+    }
+    const charset = await postPlot(
+      app,
+      { vertices: PLOT.slice(0, 3) },
+      { "Content-Type": "application/json; charset=utf-8" },
+    );
+    expect(charset.status).toBe(200);
+    expect(calls.plots).toHaveLength(1);
   });
 
   /** A triangle whose bounding box is a square of about `sideM` metres near Asok. */

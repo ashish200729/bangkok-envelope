@@ -42,6 +42,9 @@ export const DEFAULT_RATE_LIMITS: ApiRateLimits = {
 
 export type ApiError = { error: { code: string; message: string; requestId: string } };
 
+/** Hono's own errors (a body that is not JSON is a 400) in the API's documented codes. */
+const HTTP_ERROR_CODES: Partial<Record<number, string>> = { 400: "invalid_request" };
+
 export function createApp(deps: ApiDeps) {
   const limits = { ...DEFAULT_RATE_LIMITS, ...deps.rateLimits };
   const limitAnonymousSignIn = rateLimit(limits.anonymousSignIn);
@@ -122,8 +125,9 @@ export function createApp(deps: ApiDeps) {
 
   app.onError((error, c) => {
     if (error instanceof HTTPException) {
+      const code = HTTP_ERROR_CODES[error.status] ?? "http_error";
       return c.json<ApiError>(
-        { error: { code: "http_error", message: error.message, requestId: c.get("requestId") } },
+        { error: { code, message: error.message, requestId: c.get("requestId") } },
         error.status,
       );
     }
