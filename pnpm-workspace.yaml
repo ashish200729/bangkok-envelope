@@ -16,6 +16,7 @@ catalog:
   "@deck.gl/core": 9.4.1
   "@deck.gl/layers": 9.4.1
   "@deck.gl/maplibre": 9.4.1
+  "@deck.gl/mesh-layers": 9.4.1
   "@tailwindcss/postcss": 4.3.4
   "@turf/area": 7.4.0
   "@turf/boolean-intersects": 7.4.0

@@ -12,6 +12,7 @@ import {
   setWorkerUrl,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
+import { useTheme } from "next-themes";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type SceneHover, SceneTooltip } from "@/components/results/scene-tooltip";
@@ -19,11 +20,16 @@ import { startEngine, useEngineStore } from "@/lib/engine/store";
 import { usePlotStore } from "@/lib/plot/store";
 import { sceneFor } from "@/lib/results/scene";
 import { useResultsView } from "@/lib/results/view";
+import { useAsBuilt } from "@/lib/scene/as-built";
+import { sceneTimestamp, useSceneView } from "@/lib/scene/view";
+import { applyBasemapStyle, type BasemapPalette } from "./basemap-style";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
-import { createSceneLayers, type SceneLayersView } from "./envelope-layers";
+import { createSceneLayers, EMPTY_SCENE, type SceneLayersView } from "./envelope-layers";
+import { MapChips, MapLegend } from "./map-chips";
 import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
+import { SceneControls } from "./scene-controls";
 import { createSideLayers } from "./side-layers";
 import { createStudyAreaLayer } from "./study-area-layer";
 
@@ -70,11 +76,16 @@ export default function PlotMap() {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
   const drawRef = useRef<DrawController | null>(null);
+  const paletteRef = useRef<BasemapPalette>("light");
+  const renderSceneRef = useRef<(() => void) | null>(null);
   const [progress, setProgress] = useState<DrawProgress>(NO_PROGRESS);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
   const [hover, setHover] = useState<SceneHover | null>(null);
   const mode = usePlotStore((s) => s.mode);
+  const night = useSceneView((s) => s.night);
+  const { resolvedTheme } = useTheme();
+  const palette: BasemapPalette = night || resolvedTheme === "dark" ? "dark" : "light";
 
   useEffect(() => {
     if (!container.current) return;
@@ -123,6 +134,7 @@ export default function PlotMap() {
     // tile and font, so one stalled download from the tile service would block the whole tool.
     map.once("style.load", () => {
       clearTimeout(slowTimer);
+      applyBasemapStyle(map, paletteRef.current);
       cleanups.push(createStudyAreaLayer(map));
       const sides = createSideLayers(map, {
         onHover: (side) => store.getState().setHoveredSide(side),
@@ -157,18 +169,44 @@ export default function PlotMap() {
       sides.raiseLabels();
       measure.raise();
 
-      const scene = createSceneLayers(map, { onHover: setHover });
-      let shown: SceneLayersView = { envelope: null, design: null };
+      const scene = createSceneLayers(map, {
+        onHover: setHover,
+        onSelectFloor: (level) => useResultsView.getState().setSelectedFloor(level),
+      });
+      let shown: SceneLayersView = EMPTY_SCENE;
       const renderScene = () => {
-        const next = sceneFor(useEngineStore.getState().state, useResultsView.getState());
+        const results = useResultsView.getState();
+        const sceneView = useSceneView.getState();
+        const next = sceneFor(useEngineStore.getState().state, results);
         const view: SceneLayersView =
           next && store.getState().mode === "edit"
-            ? { envelope: next.envelope, design: next.design }
-            : { envelope: null, design: null };
+            ? {
+                envelope: next.envelope,
+                design: next.design,
+                input: next.input,
+                selectedFloor: results.selectedFloor,
+                toggles: sceneView.layers,
+                palette: paletteRef.current,
+                timestampMs: sceneTimestamp(sceneView),
+                night: sceneView.night,
+              }
+            : {
+                ...EMPTY_SCENE,
+                toggles: sceneView.layers,
+                palette: paletteRef.current,
+                timestampMs: sceneTimestamp(sceneView),
+                night: sceneView.night,
+              };
         if (
           view.envelope?.envelope === shown.envelope?.envelope &&
           view.envelope?.kind === shown.envelope?.kind &&
-          view.design === shown.design
+          view.design === shown.design &&
+          view.input === shown.input &&
+          view.toggles === shown.toggles &&
+          view.palette === shown.palette &&
+          view.selectedFloor === shown.selectedFloor &&
+          view.timestampMs === shown.timestampMs &&
+          view.night === shown.night
         ) {
           return;
         }
@@ -177,6 +215,7 @@ export default function PlotMap() {
       };
       startEngine();
       renderScene();
+      renderSceneRef.current = renderScene;
 
       const render = () => {
         const s = store.getState();
@@ -221,6 +260,10 @@ export default function PlotMap() {
         unsubscribe,
         useEngineStore.subscribe(renderScene),
         useResultsView.subscribe(renderScene),
+        useSceneView.subscribe(renderScene),
+        useSceneView.subscribe((s, prev) => {
+          if (s.layers.asBuilt !== prev.layers.asBuilt) hider.setAsBuiltVisible(s.layers.asBuilt);
+        }),
         () => scene.destroy(),
         () => map.off("rotate", render),
         () => measure.destroy(),
@@ -230,7 +273,13 @@ export default function PlotMap() {
       setStatus({ state: "ready" });
 
       if (process.env.NODE_ENV !== "production") {
-        Object.assign(window, { __envelopeMap: map, __envelopeDraw: draw });
+        Object.assign(window, {
+          __envelopeMap: map,
+          __envelopeDraw: draw,
+          __sceneView: useSceneView,
+          __resultsView: useResultsView,
+          __asBuilt: useAsBuilt,
+        });
       }
     });
 
@@ -243,6 +292,15 @@ export default function PlotMap() {
       map.remove();
     };
   }, []);
+
+  useEffect(() => {
+    paletteRef.current = palette;
+    const map = mapRef.current;
+    if (map && status.state === "ready") {
+      applyBasemapStyle(map, palette);
+      renderSceneRef.current?.();
+    }
+  }, [palette, status.state]);
 
   useEffect(() => {
     if (mode !== "draw") return;
@@ -268,6 +326,18 @@ export default function PlotMap() {
     });
   }
 
+  function resetView() {
+    const map = mapRef.current;
+    if (!map) return;
+    setIs3d(true);
+    map.jumpTo({ pitch: PITCH_3D, bearing: BEARING_3D });
+    fitToPlot(
+      map,
+      usePlotStore.getState().draft.vertices.map((v) => v.lngLat),
+      true,
+    );
+  }
+
   function refit() {
     const map = mapRef.current;
     if (map)
@@ -288,7 +358,7 @@ export default function PlotMap() {
       />
 
       {status.state === "ready" && (
-        <div className="absolute top-3 left-3 flex gap-2">
+        <div className="absolute top-3 left-3 flex max-w-[calc(100%-4.5rem)] flex-wrap items-center gap-2">
           <Tooltip>
             <TooltipTrigger asChild>
               <Button
@@ -315,8 +385,14 @@ export default function PlotMap() {
             </TooltipTrigger>
             <TooltipContent>{is3d ? "Flat 2D view" : "3D view"}</TooltipContent>
           </Tooltip>
+          {/* On phones the chips get their own row and scroll sideways instead of wrapping. */}
+          <div className="flex gap-2 max-sm:order-last max-sm:w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
+            <MapChips onReset={resetView} />
+          </div>
+          <SceneControls />
         </div>
       )}
+      {status.state === "ready" && mode === "edit" && <MapLegend />}
 
       {mode === "draw" && <DrawHud progress={progress} />}
       {hover && mode === "edit" && <SceneTooltip hover={hover} />}
