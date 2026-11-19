@@ -34,31 +34,39 @@ Requirements: Node 24, pnpm 12, a Neon project with PostGIS available.
 ```bash
 pnpm install
 cp .env.example apps/web/.env.local   # fill in DATABASE_URL and BETTER_AUTH_SECRET
-pnpm db:migrate                        # enables PostGIS, creates auth tables
+pnpm db:migrate                        # enables PostGIS, creates auth and site tables
+pnpm db:seed                           # loads the committed OpenStreetMap snapshot of Asok
 pnpm dev                               # http://localhost:3100
 ```
 
 ## Scripts
 
-| Command                         | What it does                                                  |
-| ------------------------------- | ------------------------------------------------------------- |
-| `pnpm dev`                      | Start the app on port 3100                                    |
-| `pnpm build`                    | Production build of every package                             |
-| `pnpm check` / `pnpm check:fix` | Biome lint and format                                         |
-| `pnpm typecheck`                | TypeScript across the workspace                               |
-| `pnpm test`                     | Unit tests (Vitest)                                           |
-| `pnpm e2e`                      | Browser smoke tests (Playwright, needs a database)            |
-| `pnpm db:generate`              | Create a migration from schema changes                        |
-| `pnpm db:migrate`               | Apply migrations to `DATABASE_URL`                            |
-| `pnpm db:studio`                | Browse the database                                           |
-| `pnpm auth:schema`              | Regenerate the Better Auth tables after changing auth plugins |
+| Command                         | What it does                                                    |
+| ------------------------------- | --------------------------------------------------------------- |
+| `pnpm dev`                      | Start the app on port 3100                                      |
+| `pnpm build`                    | Production build of every package                               |
+| `pnpm check` / `pnpm check:fix` | Biome lint and format                                           |
+| `pnpm typecheck`                | TypeScript across the workspace                                 |
+| `pnpm test`                     | Unit tests (Vitest)                                             |
+| `pnpm e2e`                      | Browser smoke tests (Playwright, needs a database)              |
+| `pnpm db:generate`              | Create a migration from schema changes                          |
+| `pnpm db:migrate`               | Apply migrations to `DATABASE_URL`                              |
+| `pnpm db:seed`                  | Load `packages/db/seed/asok-osm.json` into PostGIS (idempotent) |
+| `pnpm db:seed:fetch`            | Re-fetch the snapshot from Overpass (only to refresh the data)  |
+| `pnpm db:studio`                | Browse the database                                             |
+| `pnpm auth:schema`              | Regenerate the Better Auth tables after changing auth plugins   |
 
 ## API
 
-| Route             | Description                                                            |
-| ----------------- | ---------------------------------------------------------------------- |
-| `GET /api/health` | API, database and PostGIS status. 503 when the database is unreachable |
-| `GET /api/me`     | Current session as the server sees it                                  |
-| `/api/auth/*`     | Better Auth endpoints                                                  |
+| Route                                  | Description                                                                                                              |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/health`                      | API, database and PostGIS status. 503 when the database is unreachable                                                   |
+| `GET /api/me`                          | Current session as the server sees it                                                                                    |
+| `/api/auth/*`                          | Better Auth endpoints                                                                                                    |
+| `GET /api/site/area`                   | Study area polygon, OSM attribution, snapshot date and row counts                                                        |
+| `GET /api/site/buildings?bbox=w,s,e,n` | Buildings (GeoJSON, heights in metres) in a box of at most 1.2 km² inside the study area                                 |
+| `POST /api/site/plot-context`          | `{ vertices: [lng, lat][] }` → nearest station, the road each side faces (with a suggested width), buildings on the plot |
+
+Site data is © OpenStreetMap contributors, available under the [Open Database License](https://www.openstreetmap.org/copyright). The app never calls OpenStreetMap at runtime; it serves a snapshot committed in `packages/db/seed/`.
 
 See [docs/decisions.md](docs/decisions.md) for why each choice was made.

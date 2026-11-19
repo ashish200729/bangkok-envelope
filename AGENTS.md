@@ -144,9 +144,25 @@ Rules of the contract:
 
 Required tests: hand-checked rectangle (40 × 50 m on a 12 m road), concave and narrow plots, and property tests over random plots (every floor ⊂ its slice ⊂ plot; GFA ≤ FAR × area; open space + footprint = plot area).
 
+### Site data backend (built, phase 6)
+
+Real buildings, roads and stations for a fixed study area around Asok (`STUDY_AREA`, lon 100.547–100.575, lat 13.728–13.752), from a committed OpenStreetMap snapshot. **No runtime calls to Overpass/OSM.** Decisions 18–20 explain the choices.
+
+| Path                              | Role                                                                                                                                                                                                                                                    |
+| --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `packages/db/src/schema/site.ts`  | `site_buildings` (MultiPolygon, `height_m`, `base_m`, `height_source`), `site_roads` (MultiLineString, `class`, `width_m`, `width_source`), `site_stations` (Point), `site_snapshots` (source, dates, counts). GiST indexes. Migration `0002_site_data` |
+| `packages/db/src/site.ts`         | DB-free barrel, import as `@envelope/db/site`: `STUDY_AREA`, bbox helpers, normalisers, snapshot format, result types                                                                                                                                   |
+| `packages/db/src/site-queries.ts` | `getSiteBuildings`, `getPlotContext` (nearest station, road per side, buildings on plot), `getSnapshotInfo`. Parameterised `sql` only                                                                                                                   |
+| `packages/db/seed/`               | `asok-osm.json` snapshot (ODbL), `fetch-osm.ts` (`pnpm db:seed:fetch`, Overpass, rarely needed), `load-site.ts` (`pnpm db:seed`, idempotent upsert)                                                                                                     |
+| `packages/api/src/routes/site.ts` | `GET /api/site/area`, `GET /api/site/buildings?bbox=`, `POST /api/site/plot-context`; rate limit (`site-rate-limit.ts`) and 32 KB body limit                                                                                                            |
+
+- Road widths from OSM are suggestions (`widthSource` `osm-tag` / `osm-estimate`, same values as the engine's `Road.widthSource`); the user's value wins.
+- `pnpm --filter @envelope/db test:db` runs the SQL integration tests against `DATABASE_URL` (skipped in plain `pnpm test`).
+- Error codes: `invalid_request`, `outside_study_area`, `bbox_too_large`, `plot_too_large`, `payload_too_large` (413), `rate_limited` (429, `Retry-After`).
+
 ### Planned backend routes (not built yet)
 
-`GET /api/site?bbox=` (buildings, roads, stations; PostGIS cache, OSM on miss, zone area pre-seeded so the demo never depends on Overpass), `GET /api/zone?lat=&lng=`, `GET /api/stations/nearest`, `POST/GET /api/projects`, `GET /p/[shareId]`, `GET /api/projects/:id/report`.
+`GET /api/zone?lat=&lng=`, `POST/GET /api/projects`, `GET /p/[shareId]`, `GET /api/projects/:id/report`.
 
 ### Map (built, phase 2)
 
@@ -244,4 +260,5 @@ Then:
 - Done: monorepo starter (Next.js 16, Hono API, Neon + PostGIS, Drizzle migrations, Better Auth guests, Blueprint theme, Biome, Vitest, Playwright, CI). The home page is a temporary system status page.
 - Done: engine contract (phase 1): input schemas, result types, law registry, rule ids, sample input, 20 tests.
 - Done: map (phase 2): 3D map of the real site, draw and edit any plot shape, side roles and road widths, zone and building type inputs, on-plot buildings hidden, live engine input. 16 web unit tests, 7 map e2e tests.
-- Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, site data backend, polish, deploy to Vercel.
+- Done: site data backend (phase 6): OSM snapshot of Asok in PostGIS (5,766 buildings, 1,691 roads, 7 stations), `/api/site/*` routes. Not yet consumed by the web app.
+- Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.

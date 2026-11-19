@@ -4,6 +4,8 @@ import { Hono } from "hono";
 import { HTTPException } from "hono/http-exception";
 import { logger } from "hono/logger";
 import { requestId } from "hono/request-id";
+import { type SiteDeps, siteRoutes } from "./routes/site";
+import type { RateLimitOptions } from "./routes/site-rate-limit";
 
 type SessionSummary = {
   userId: string;
@@ -16,6 +18,9 @@ export type ApiDeps = {
   checkDatabase: () => Promise<DatabaseHealth>;
   handleAuth: (request: Request) => Promise<Response>;
   getSession: (headers: Headers) => Promise<SessionSummary | null>;
+  site: SiteDeps;
+  /** Per-client limit on /api/site/*; defaults to DEFAULT_SITE_RATE_LIMIT. */
+  siteRateLimit?: RateLimitOptions;
 };
 
 export type ApiError = { error: { code: string; message: string; requestId: string } };
@@ -55,7 +60,8 @@ export function createApp(deps: ApiDeps) {
     .get("/me", async (c) => {
       const session = await deps.getSession(c.req.raw.headers);
       return c.json({ session });
-    });
+    })
+    .route("/site", siteRoutes(deps.site, deps.siteRateLimit));
 
   app.notFound((c) =>
     c.json<ApiError>(
