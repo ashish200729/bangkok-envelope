@@ -29,3 +29,23 @@ export function floorUses(design: Design): FloorUse[] {
 export function sumFloorAreas(design: Design): number {
   return design.floors.reduce((sum, floor) => sum + floor.areaM2, 0);
 }
+
+/**
+ * Whole square metres per floor that add up to the rounded total (largest remainder), so a
+ * reader summing the schedule gets the total it shows. Rounding each floor alone can be several
+ * m² off over 20 floors.
+ */
+export function scheduleAreasM2(design: Design): number[] {
+  const exact = design.floors.map((floor) => floor.areaM2);
+  const whole = exact.map(Math.floor);
+  let missing = Math.round(sumFloorAreas(design)) - whole.reduce((sum, a) => sum + a, 0);
+  const byRemainder = exact
+    .map((area, i) => ({ i, remainder: area - Math.floor(area) }))
+    .sort((a, b) => b.remainder - a.remainder);
+  for (const { i } of byRemainder) {
+    if (missing <= 0) break;
+    whole[i] = (whole[i] ?? 0) + 1;
+    missing -= 1;
+  }
+  return whole;
+}

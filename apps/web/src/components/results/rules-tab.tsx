@@ -1,6 +1,6 @@
 "use client";
 
-import { MAX_FAR_BONUS_PCT } from "@envelope/engine";
+import { ENVELOPE_CEILING_M, MAX_FAR_BONUS_PCT } from "@envelope/engine";
 import { Input } from "@envelope/ui/components/input";
 import { Label } from "@envelope/ui/components/label";
 import { Switch } from "@envelope/ui/components/switch";
@@ -10,10 +10,17 @@ import { usePlotStore } from "@/lib/plot/store";
 import { formatArea, formatLength, formatNumber, formatRuleValue } from "@/lib/results/format";
 import { groupRules, type RuleRow, TOGGLE_LABEL } from "@/lib/results/rule-groups";
 import type { Scene } from "@/lib/results/scene";
-import { summarise } from "@/lib/results/summary";
+import { type HeightBy, summarise } from "@/lib/results/summary";
 import { useResultsView } from "@/lib/results/view";
 import { CitationLink, Figure, SectionTitle, StatusPill } from "./bits";
 import { EnvelopeSwitch } from "./envelope-switch";
+
+const HEIGHT_DETAIL: Record<HeightBy, string> = {
+  "low-rise": "Low-rise: below 23 m",
+  "road-plane": "Set by the road height plane",
+  "plane-not-binding": `The road is wide enough that its height plane does not bind (checked to ${formatLength(ENVELOPE_CEILING_M)})`,
+  "plane-off": "Height plane switched off",
+};
 
 export function RulesTab({ scene }: { scene: Scene }) {
   const { result, input } = scene;
@@ -45,13 +52,7 @@ export function RulesTab({ scene }: { scene: Scene }) {
             label="Max height"
             value={summary.maxHeightM === null ? "No limit" : formatLength(summary.maxHeightM)}
             testId="sum-max-height"
-            detail={
-              summary.kind === "lowRise"
-                ? "Low-rise: below 23 m"
-                : summary.maxHeightM === null
-                  ? "Height plane switched off"
-                  : "Set by the road height plane"
-            }
+            detail={HEIGHT_DETAIL[summary.heightBy]}
           />
           <Figure
             label="Ground area allowed"

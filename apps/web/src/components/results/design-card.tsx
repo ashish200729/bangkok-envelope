@@ -3,7 +3,7 @@
 import type { Design } from "@envelope/engine";
 import { cn } from "@envelope/ui/lib/utils";
 import { ChevronRight, Eye } from "lucide-react";
-import { floorUseColor, floorUses, sumFloorAreas } from "@/lib/results/designs";
+import { floorUseColor, floorUses, scheduleAreasM2, sumFloorAreas } from "@/lib/results/designs";
 import {
   FLOOR_USE_LABEL,
   floorNumber,
@@ -27,7 +27,7 @@ export function DesignCard({
   selected: boolean;
   context: DesignContext;
 }) {
-  const farMax = context.farMax(design);
+  const farMax = context.farMax;
   const fails = design.checks.filter((c) => c.status === "fail").length;
 
   return (
@@ -163,7 +163,8 @@ function UseLegend({ design }: { design: Design }) {
 
 function FloorSchedule({ design }: { design: Design }) {
   const total = sumFloorAreas(design);
-  const topDown = [...design.floors].reverse();
+  const areas = scheduleAreasM2(design);
+  const topDown = design.floors.map((floor, i) => ({ floor, areaM2: areas[i] ?? 0 })).reverse();
   return (
     <details className="group rounded-md border">
       <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium text-sm [&::-webkit-details-marker]:hidden">
@@ -192,7 +193,7 @@ function FloorSchedule({ design }: { design: Design }) {
             </tr>
           </thead>
           <tbody className="font-mono tabular">
-            {topDown.map((floor) => (
+            {topDown.map(({ floor, areaM2 }) => (
               <tr key={floor.level} className="border-b last:border-b-0">
                 <td className="px-3 py-1">{floorNumber(floor.level)}</td>
                 <td className="px-3 py-1 font-sans">
@@ -206,7 +207,7 @@ function FloorSchedule({ design }: { design: Design }) {
                   </span>
                 </td>
                 <td className="px-3 py-1 text-right">{formatLength(floor.heightM)}</td>
-                <td className="px-3 py-1 text-right">{formatArea(floor.areaM2)}</td>
+                <td className="px-3 py-1 text-right">{formatArea(areaM2)}</td>
               </tr>
             ))}
           </tbody>

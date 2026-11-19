@@ -10,7 +10,7 @@ import {
 } from "@envelope/engine";
 import { describe, expect, it } from "vitest";
 import { handleRequest } from "@/lib/engine/handle";
-import { outlinePolygons, sumFloorAreas } from "./designs";
+import { outlinePolygons, scheduleAreasM2, sumFloorAreas } from "./designs";
 import { fixtureDesigns } from "./fixtures";
 import { floorLabel, formatCheckFigures, formatRuleValue } from "./format";
 import { groupRules, RULE_GROUPS } from "./rule-groups";
@@ -125,6 +125,17 @@ describe("summary", () => {
     expect(summarise(withRoad(8), narrow, "highRise").maxHeightM).toBe(23);
   });
 
+  it("says what sets the height, and never calls an applied height plane switched off", () => {
+    const wide = withRoad(200);
+    const summary = summarise(wide, run(wide), "highRise");
+    expect(summary.maxHeightM).toBeNull();
+    expect(summary.heightBy).toBe("plane-not-binding");
+    const off = { ...wide, toggles: { ...ALL_RULES_ON, roadHeightPlane: false } };
+    expect(summarise(off, run(off), "highRise").heightBy).toBe("plane-off");
+    expect(summarise(SAMPLE_INPUT, run(), "highRise").heightBy).toBe("road-plane");
+    expect(summarise(SAMPLE_INPUT, run(), "lowRise").heightBy).toBe("low-rise");
+  });
+
   it("shows a wider road as a taller allowed space", () => {
     const at = (w: number) => summarise(withRoad(w), run(withRoad(w)), "highRise").maxHeightM;
     expect(at(20) ?? 0).toBeGreaterThan(at(10) ?? 0);
@@ -150,6 +161,25 @@ describe("designs", () => {
     expect(designs.length).toBeGreaterThanOrEqual(4);
     for (const design of designs) {
       expect(sumFloorAreas(design)).toBeCloseTo(design.gfaM2, 6);
+    }
+  });
+
+  it("shows whole-m² floor areas that add up to the total the schedule shows", () => {
+    const designs = [
+      ...run().designs,
+      ...run({ ...withRoad(20), buildingType: "hotel" }).designs,
+      ...run({ ...SAMPLE_INPUT, buildingType: "office", farBonusPct: 20 }).designs,
+    ];
+    const naiveMismatch = designs.some(
+      (d) => d.floors.reduce((s, f) => s + Math.round(f.areaM2), 0) !== Math.round(d.gfaM2),
+    );
+    expect(naiveMismatch).toBe(true);
+    for (const design of designs) {
+      const areas = scheduleAreasM2(design);
+      expect(areas.reduce((s, a) => s + a, 0)).toBe(Math.round(design.gfaM2));
+      areas.forEach((area, i) => {
+        expect(Math.abs(area - (design.floors[i]?.areaM2 ?? 0))).toBeLessThan(1);
+      });
     }
   });
 

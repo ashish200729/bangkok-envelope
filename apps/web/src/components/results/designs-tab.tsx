@@ -8,12 +8,13 @@ import { useResultsView } from "@/lib/results/view";
 import { SectionTitle } from "./bits";
 import { DesignCard } from "./design-card";
 
-export type DesignContext = { farMax: (design: Design) => number; keyLabel: string | null };
+/** `farMax` is the zone's FAR with the bonus, the limit every design's FAR check uses. */
+export type DesignContext = { farMax: number; keyLabel: string | null };
 
 export function designContext(scene: Scene): DesignContext {
   const { input } = scene;
   return {
-    farMax: (design) => farLimit(input.zone, input.farBonusPct, design.envelope === "highRise"),
+    farMax: farLimit(input.zone, input.farBonusPct, false),
     keyLabel:
       input.buildingType === "condo" ? "Units" : input.buildingType === "hotel" ? "Rooms" : null,
   };
@@ -62,26 +63,31 @@ function Comparison({
   selected: string | null;
   context: DesignContext;
 }) {
-  const rows: { label: string; value: (d: Design) => string }[] = [
+  const rows: { label: string; note?: string; value: (d: Design) => string }[] = [
     { label: "Height", value: (d) => formatLength(d.heightM) },
     { label: "Floors", value: (d) => formatInt(d.floors.length) },
     { label: "Floor area", value: (d) => formatArea(d.gfaM2) },
-    { label: "FAR", value: (d) => `${formatFar(d.farUsed)} / ${formatFar(context.farMax(d))}` },
+    {
+      label: "FAR",
+      note: `max ${formatFar(context.farMax)}`,
+      value: (d) => formatFar(d.farUsed),
+    },
     ...(context.keyLabel
       ? [{ label: context.keyLabel, value: (d: Design) => formatInt(d.keyCount ?? 0) }]
       : []),
     {
       label: "Parking",
+      note: "provided / required",
       value: (d) =>
         `${formatInt(d.parking.providedSpaces)} / ${formatInt(d.parking.requiredSpaces)}`,
     },
   ];
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-xs sm:text-sm" data-testid="design-comparison">
+      <table className="w-full text-xs sm:text-sm lg:text-xs" data-testid="design-comparison">
         <thead>
           <tr className="border-b">
-            <th scope="col" className="w-0 px-3 py-2 text-left font-normal text-muted-foreground">
+            <th scope="col" className="w-0 px-2.5 py-2 text-left font-normal text-muted-foreground">
               <span className="sr-only">Figure</span>
             </th>
             {designs.map((d) => (
@@ -89,7 +95,7 @@ function Comparison({
                 key={d.id}
                 scope="col"
                 className={cn(
-                  "px-3 py-2 text-right align-bottom",
+                  "px-2.5 py-2 text-right align-bottom",
                   d.id === selected && "bg-accent",
                 )}
               >
@@ -115,17 +121,15 @@ function Comparison({
         <tbody>
           {rows.map((row) => (
             <tr key={row.label} className="border-b last:border-b-0">
-              <th
-                scope="row"
-                className="whitespace-nowrap px-3 py-1.5 text-left font-normal text-muted-foreground"
-              >
-                {row.label}
+              <th scope="row" className="px-2.5 py-1.5 text-left font-normal text-muted-foreground">
+                <span className="whitespace-nowrap">{row.label}</span>
+                {row.note && <span className="block text-[11px] leading-tight">{row.note}</span>}
               </th>
               {designs.map((d) => (
                 <td
                   key={d.id}
                   className={cn(
-                    "whitespace-nowrap px-3 py-1.5 text-right font-mono tabular",
+                    "whitespace-nowrap px-2.5 py-1.5 text-right font-mono tabular",
                     d.id === selected && "bg-accent",
                   )}
                 >

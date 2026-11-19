@@ -31,8 +31,18 @@ export type Summary = {
   maxFloorArea: MaxFloorArea;
   /** Null when nothing but the computational ceiling stops the envelope. */
   maxHeightM: number | null;
+  /** What sets the height shown. */
+  heightBy: HeightBy;
   groundAreaM2: number;
 };
+
+export type HeightBy = "low-rise" | "road-plane" | "plane-not-binding" | "plane-off";
+
+function heightBy(input: EngineInput, kind: EnvelopeKind, maxHeightM: number | null): HeightBy {
+  if (kind === "lowRise") return "low-rise";
+  if (maxHeightM !== null) return "road-plane";
+  return input.toggles.roadHeightPlane ? "plane-not-binding" : "plane-off";
+}
 
 export function summarise(
   input: EngineInput,
@@ -40,11 +50,13 @@ export function summarise(
   preferred: EnvelopeKind,
 ): Summary {
   const { kind, envelope } = shownEnvelope(result, preferred);
+  const maxHeightM = envelope.maxHeightM >= ENVELOPE_CEILING_M ? null : envelope.maxHeightM;
   return {
     kind,
     plotAreaM2: result.plotAreaM2,
     maxFloorArea: maxFloorArea(input, result, kind),
-    maxHeightM: envelope.maxHeightM >= ENVELOPE_CEILING_M ? null : envelope.maxHeightM,
+    maxHeightM,
+    heightBy: heightBy(input, kind, maxHeightM),
     groundAreaM2: envelope.groundAreaM2,
   };
 }
