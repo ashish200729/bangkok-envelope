@@ -15,6 +15,7 @@
     "@envelope/auth": "workspace:*",
     "@envelope/db": "workspace:*",
     "@envelope/engine": "workspace:*",
+    "@hono/zod-validator": "catalog:",
     "hono": "catalog:",
     "zod": "catalog:"
   },

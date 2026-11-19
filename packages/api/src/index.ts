@@ -1,5 +1,5 @@
 import { auth } from "@envelope/auth";
-import { checkDatabase, db } from "@envelope/db";
+import { checkDatabase, db, getPlotContext, getSiteBuildings, getSnapshotInfo } from "@envelope/db";
 import { createApp } from "./app";
 
 export type { ApiError, AppType } from "./app";
@@ -15,5 +15,10 @@ export const app = createApp({
       isAnonymous: result.user.isAnonymous === true,
       expiresAt: result.session.expiresAt.toISOString(),
     };
+  },
+  site: {
+    getBuildings: (bbox, limit) => getSiteBuildings(db, bbox, limit),
+    getPlotContext: (vertices) => getPlotContext(db, vertices),
+    getSnapshotInfo: () => getSnapshotInfo(db),
   },
 });

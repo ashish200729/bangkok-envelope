@@ -12,6 +12,11 @@ function appWith(overrides: Partial<ApiDeps> = {}) {
     checkDatabase: healthyDb,
     handleAuth: async () => new Response("auth", { status: 200 }),
     getSession: async () => null,
+    site: {
+      getBuildings: async () => ({ features: [], truncated: false }),
+      getPlotContext: async () => ({ nearestStation: null, sides: [], buildingsOnPlot: [] }),
+      getSnapshotInfo: async () => null,
+    },
     ...overrides,
   });
 }
