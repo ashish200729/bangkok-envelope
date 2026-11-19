@@ -85,6 +85,25 @@ test("dragging a corner updates the area live", async ({ page }) => {
   await expect(sides(page)).toHaveCount(4);
 });
 
+test("the plot and its settings survive a reload", async ({ page }) => {
+  const project = await openMap(page);
+  await drag(page, await project(SAMPLE_FRONT_SOUTH), 30, -20);
+  const area = page.getByTestId("plot-area");
+  await expect(area).not.toHaveText(SAMPLE_AREA);
+  const changed = await area.textContent();
+  await page.getByRole("combobox", { name: /Zone/ }).click();
+  await page.getByRole("option", { name: /ย\.8/ }).click();
+  await page.waitForTimeout(600);
+
+  await openMap(page);
+  await expect(area).toHaveText(changed ?? "");
+  await expect(page.getByRole("combobox", { name: /Zone/ })).toHaveText(/ย\.8/);
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(ROAD);
+
+  await page.getByRole("button", { name: "Sample plot" }).click();
+  await expect(area).toHaveText(SAMPLE_AREA);
+});
+
 test("inserting a corner on the road side keeps both halves on the road", async ({ page }) => {
   const project = await openMap(page);
   const mid = await project([

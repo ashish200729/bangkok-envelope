@@ -9,6 +9,7 @@ import { useCallback, useEffect, useState } from "react";
 import { PlotMapLoader } from "@/components/map/plot-map-loader";
 import { PlotPanel } from "@/components/panel/plot-panel";
 import { useEngineResult } from "@/lib/engine/use-engine-result";
+import { startPlotPersistence } from "@/lib/plot/persist";
 import { usePlotStore } from "@/lib/plot/store";
 import { formatArea } from "@/lib/results/format";
 import { NOTICE } from "@/lib/results/notice";
@@ -164,7 +165,13 @@ export function AppShell() {
   useUndoShortcuts();
   useEffect(() => {
     useFeasibility.getState().load();
-    return startStudio();
+    // The saved plot first, so the studio loads the variants kept for that plot.
+    const stopPlot = startPlotPersistence();
+    const stopStudio = startStudio();
+    return () => {
+      stopStudio();
+      stopPlot();
+    };
   }, []);
   const [comparing, setComparing] = useState(false);
   const closeCompare = useCallback(() => setComparing(false), []);

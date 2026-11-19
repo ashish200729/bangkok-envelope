@@ -58,6 +58,13 @@ type PlotActions = {
   /** The map has measured the buildings on the plot just drawn. */
   markSiteChecked: () => void;
   confirmDemolition: () => void;
+  /** A plot saved in this browser (lib/plot/persist.ts), loaded into the map like a reset. */
+  restorePlot: (plot: {
+    draft: PlotDraft;
+    roads: readonly Road[];
+    settings: PlotSettings;
+    demolitionConfirmed: boolean;
+  }) => void;
 };
 
 export const DEFAULT_ROAD_WIDTH_M = 12;
@@ -194,6 +201,19 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
 
   markSiteChecked: () => set((s) => (s.siteCheck === "checking" ? { siteCheck: "done" } : {})),
   confirmDemolition: () => set({ demolitionConfirmed: true }),
+  restorePlot: (plot) =>
+    set((s) => ({
+      draft: plot.draft,
+      roads: usedRoads(plot.draft, plot.roads),
+      settings: plot.settings,
+      demolitionConfirmed: plot.demolitionConfirmed,
+      // An unconfirmed plot waits for the map to say what stands on it, as after drawing.
+      siteCheck: plot.demolitionConfirmed ? "done" : "checking",
+      mode: "edit",
+      hoveredSide: null,
+      selectedSide: null,
+      geometryRevision: s.geometryRevision + 1,
+    })),
 }));
 
 /** Site data (lib/site): replaces sides and roads with an OSM suggestion applied to them. */

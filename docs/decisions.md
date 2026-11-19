@@ -339,3 +339,7 @@ A fixed bearing (120°) was chosen for the old sample plot and often looked thro
 ## 62. No time-of-day picker
 
 The sun picker (date, hour slider, presets) was removed: it added a control and a popover, and the figures don't depend on it. Daylight is a fixed Bangkok afternoon (`DAYLIGHT_HOUR` 15:00, today's date) with the sun's real position, so shadows still read the massing. Night view stays, as one button.
+
+## 63. The plot survives a reload
+
+Reloading the page used to drop the user's plot and show the sample, which is the first thing a reviewer trying to break the tool would notice. `startPlotPersistence` (`lib/plot/persist.ts`) saves the finished plot to this browser, 300 ms after a change, under `envelope.plot.v1`. That covers corners with their ids, what each side faces, roads, zone, building type, bonus, station distance, rule switches and the demolition answer. On load it restores the plot before the studio starts, so the variants kept for that plot come back too. The stored entry is checked with zod: a broken entry, one in an older shape, or one with duplicate corner ids is ignored, and the sample is shown. An unconfirmed plot waits for the map's building check, as after drawing, with a 10 s fallback so results never wait forever without a map. Saving happens only in edit mode, so a half-drawn outline is never stored. "Sample plot" goes back to the sample and saves that. Nothing leaves the browser; sharing a plot by link would need the planned projects API.
