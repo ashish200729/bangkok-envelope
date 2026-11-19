@@ -24,7 +24,6 @@
     "@turf/area": "catalog:",
     "@turf/boolean-intersects": "catalog:",
     "@turf/helpers": "catalog:",
-    "better-auth": "catalog:",
     "hono": "catalog:",
     "lucide-react": "catalog:",
     "maplibre-gl": "catalog:",

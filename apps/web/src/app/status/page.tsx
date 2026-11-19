@@ -1,10 +1,14 @@
 import { Badge } from "@envelope/ui/components/badge";
 import { Separator } from "@envelope/ui/components/separator";
 import type { Metadata } from "next";
+import { notFound } from "next/navigation";
 import { StatusBoard } from "@/components/status-board";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export const metadata: Metadata = { title: "System status" };
+
+// A developer page: it reads the detailed /api/health, which production does not serve.
+const ENABLED = process.env.NODE_ENV !== "production";
 
 const swatches = [
   ["Pass", "bg-pass"],
@@ -18,6 +22,7 @@ const swatches = [
 ] as const;
 
 export default function StatusPage() {
+  if (!ENABLED) notFound();
   return (
     <div className="mx-auto grid max-w-4xl gap-8 px-4 py-8 sm:px-6 sm:py-12">
       <header className="flex items-start justify-between gap-4">
