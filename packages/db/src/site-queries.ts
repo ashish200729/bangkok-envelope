@@ -1,16 +1,10 @@
 import { eq, sql } from "drizzle-orm";
 import type { Database } from "./client";
 import { siteSnapshots } from "./schema/site";
-import { type Bbox, STUDY_AREA } from "./site-area";
+import { STUDY_AREA } from "./site-area";
 import type { RoadWidthSource } from "./site-normalize";
-import type {
-  BuildingFeature,
-  BuildingsResult,
-  NearestStation,
-  PlotContext,
-  SideRoad,
-  SnapshotInfo,
-} from "./site-types";
+import type { NearestStation, PlotContext, SideRoad, SnapshotInfo } from "./site-types";
+import { withStatementTimeout } from "./statement-timeout";
 
 type Position = readonly [number, number];
 
@@ -18,42 +12,8 @@ type Position = readonly [number, number];
 export const SIDE_MAX_ANGLE_DEG = 25;
 /** …and the centreline lies within half the road's width plus this, from the side's midpoint. */
 export const SIDE_EXTRA_REACH_M = 12;
-/** A building counts as on the plot when at least this share of its footprint is inside. */
-export const ON_PLOT_MIN_SHARE = 0.3;
 /** Elevated, access-controlled roads: a plot cannot front them, so they never match a side. */
 const UNMATCHED_CLASSES = ["motorway", "motorway_link"];
-
-/** Buildings intersecting the box, nearest the box centre first, at most `limit`. */
-export async function getSiteBuildings(
-  db: Database,
-  bbox: Bbox,
-  limit: number,
-): Promise<BuildingsResult> {
-  const [w, s, e, n] = bbox;
-  const cx = (w + e) / 2;
-  const cy = (s + n) / 2;
-  const result = await db.execute<{ feature: BuildingFeature }>(sql`
-    select json_build_object(
-      'type', 'Feature',
-      'id', osm_id,
-      'geometry', ST_AsGeoJSON(geom, 7)::json,
-      'properties', json_build_object(
-        'id', osm_id,
-        'heightM', height_m,
-        'baseM', base_m,
-        'heightSource', height_source,
-        'name', name
-      )
-    ) as feature
-    from site_buildings
-    where ST_Intersects(geom, ST_MakeEnvelope(${w}, ${s}, ${e}, ${n}, 4326))
-    order by geom <-> ST_SetSRID(ST_MakePoint(${cx}, ${cy}), 4326)
-    limit ${limit + 1}
-  `);
-  const features = result.rows.map((r) => r.feature);
-  const truncated = features.length > limit;
-  return { features: truncated ? features.slice(0, limit) : features, truncated };
-}
 
 function plotGeoJson(vertices: readonly Position[]): string {
   const ring = vertices.map(([lng, lat]) => [lng, lat]);
@@ -61,7 +21,11 @@ function plotGeoJson(vertices: readonly Position[]): string {
   return JSON.stringify({ type: "Polygon", coordinates: [ring] });
 }
 
-/** Nearest station, the road each side faces and the buildings standing on the plot. */
+/**
+ * Nearest station and the road each side faces. Both queries run one after the other in one
+ * transaction under the statement timeout (a transaction holds one connection, so they cannot
+ * run in parallel there).
+ */
 export async function getPlotContext(
   db: Database,
   vertices: readonly Position[],
@@ -79,15 +43,20 @@ export async function getPlotContext(
     sql`, `,
   );
 
-  const [stationRows, sideRows, buildingRows] = await Promise.all([
-    db.execute<{ name: string; name_en: string | null; network: string | null; d: number }>(sql`
+  const { stationRows, sideRows } = await withStatementTimeout(db, async (tx) => {
+    const stationRows = await tx.execute<{
+      name: string;
+      name_en: string | null;
+      network: string | null;
+      d: number;
+    }>(sql`
       with plot as (select ${plotSql} as g)
       select s.name, s.name_en, s.network, ST_Distance(s.geom::geography, plot.g::geography) as d
       from site_stations s, plot
       order by d
       limit 1
-    `),
-    db.execute<{
+    `);
+    const sideRows = await tx.execute<{
       idx: number;
       osm_id: string;
       name: string | null;
@@ -132,18 +101,9 @@ export async function getPlotContext(
       from parallel
       where least(folded, pi() - folded) <= radians(${SIDE_MAX_ANGLE_DEG})
       order by idx, d, osm_id
-    `),
-    db.execute<{ osm_id: string }>(sql`
-      with plot as (select ${plotSql} as g)
-      select b.osm_id
-      from site_buildings b, plot
-      where ST_Intersects(b.geom, plot.g)
-        and ST_Area(ST_Intersection(b.geom, plot.g)::geography)
-          >= ${ON_PLOT_MIN_SHARE} * ST_Area(b.geom::geography)
-      order by b.osm_id
-      limit 500
-    `),
-  ]);
+    `);
+    return { stationRows, sideRows };
+  });
 
   const station = stationRows.rows[0];
   const nearestStation: NearestStation | null = station
@@ -171,16 +131,15 @@ export async function getPlotContext(
   return {
     nearestStation,
     sides: vertices.map((_, index) => ({ index, road: roadBySide.get(index) ?? null })),
-    buildingsOnPlot: buildingRows.rows.map((r) => r.osm_id),
   };
 }
 
 export async function getSnapshotInfo(db: Database): Promise<SnapshotInfo | null> {
-  const [row] = await db
-    .select()
-    .from(siteSnapshots)
-    .where(eq(siteSnapshots.id, STUDY_AREA.id))
-    .limit(1);
+  const [row] = await withStatementTimeout(
+    db,
+    async (tx) =>
+      await tx.select().from(siteSnapshots).where(eq(siteSnapshots.id, STUDY_AREA.id)).limit(1),
+  );
   if (!row) return null;
   return {
     source: row.source,

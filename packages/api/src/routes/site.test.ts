@@ -1,9 +1,9 @@
-import type { Bbox, PlotContext } from "@envelope/db/site";
+import type { PlotContext, SnapshotInfo } from "@envelope/db/site";
 import { describe, expect, it } from "vitest";
 import { type ApiDeps, createApp } from "../app";
 import type { SiteDeps } from "./site";
 
-type Calls = { buildings: { bbox: Bbox; limit: number }[]; plots: [number, number][][] };
+type Calls = { plots: [number, number][][] };
 
 const context: PlotContext = {
   nearestStation: { name: "อโศก", nameEn: "Asok", network: "BTS", distanceM: 310 },
@@ -23,20 +23,16 @@ const context: PlotContext = {
     { index: 1, road: null },
     { index: 2, road: null },
   ],
-  buildingsOnPlot: ["way/9"],
 };
 
 function appWith(site: Partial<SiteDeps> = {}, overrides: Partial<ApiDeps> = {}) {
-  const calls: Calls = { buildings: [], plots: [] };
+  const calls: Calls = { plots: [] };
   const app = createApp({
     checkDatabase: async () => ({ postgres: "18", postgis: "3.6", latencyMs: 1 }),
     handleAuth: async () => new Response(null, { status: 204 }),
     getSession: async () => null,
+    exposeDetails: true,
     site: {
-      getBuildings: async (bbox, limit) => {
-        calls.buildings.push({ bbox, limit });
-        return { features: [], truncated: false };
-      },
       getPlotContext: async (vertices) => {
         calls.plots.push(vertices);
         return context;
@@ -68,73 +64,6 @@ async function errorCode(res: Response) {
   return ((await res.json()) as { error: { code: string; message: string } }).error;
 }
 
-describe("GET /api/site/buildings", () => {
-  it("returns a FeatureCollection for a small box inside the study area, cacheable", async () => {
-    const { app, calls } = appWith();
-    const res = await app.request("/api/site/buildings?bbox=100.558,13.736,100.562,13.740");
-    expect(res.status).toBe(200);
-    expect(res.headers.get("Cache-Control")).toContain("max-age");
-    expect(await res.json()).toMatchObject({ type: "FeatureCollection", truncated: false });
-    expect(calls.buildings).toEqual([{ bbox: [100.558, 13.736, 100.562, 13.74], limit: 5000 }]);
-  });
-
-  it("clips a box that crosses the study area's edge", async () => {
-    const { app, calls } = appWith();
-    const res = await app.request("/api/site/buildings?bbox=100.540,13.736,100.550,13.740");
-    expect(res.status).toBe(200);
-    expect(calls.buildings[0]?.bbox).toEqual([100.547, 13.736, 100.55, 13.74]);
-  });
-
-  it.each([
-    ["missing", ""],
-    ["three numbers", "?bbox=100.55,13.73,100.56"],
-    ["five numbers", "?bbox=1,2,3,4,5"],
-    ["words", "?bbox=a,b,c,d"],
-    ["NaN", "?bbox=NaN,13.73,100.56,13.74"],
-    ["Infinity", "?bbox=100.55,13.73,Infinity,13.74"],
-    ["empty parts", "?bbox=,,,"],
-    ["exponents", "?bbox=1e2,13.73,100.56,13.74"],
-    ["inverted", "?bbox=100.56,13.73,100.55,13.74"],
-    ["out of range", "?bbox=100.55,13.73,200,13.74"],
-    ["an unknown parameter", "?bbox=100.558,13.736,100.562,13.740&x=1"],
-  ])("rejects a bbox that is %s with 400", async (_label, query) => {
-    const { app, calls } = appWith();
-    const res = await app.request(`/api/site/buildings${query}`);
-    expect(res.status).toBe(400);
-    expect((await errorCode(res)).code).toBe("invalid_request");
-    expect(calls.buildings).toHaveLength(0);
-  });
-
-  it("rejects a box outside the study area", async () => {
-    const { app } = appWith();
-    const res = await app.request("/api/site/buildings?bbox=100.50,13.70,100.51,13.71");
-    expect(res.status).toBe(400);
-    expect((await errorCode(res)).code).toBe("outside_study_area");
-  });
-
-  it("rejects a box larger than 1.2 km²", async () => {
-    const { app } = appWith();
-    const res = await app.request("/api/site/buildings?bbox=100.548,13.729,100.574,13.751");
-    expect(res.status).toBe(400);
-    const error = await errorCode(res);
-    expect(error.code).toBe("bbox_too_large");
-    expect(error.message).toMatch(/km²/);
-  });
-
-  it("hides database errors behind a generic 500", async () => {
-    const { app } = appWith({
-      getBuildings: async () => {
-        throw new Error("password authentication failed for user neondb_owner");
-      },
-    });
-    const res = await app.request("/api/site/buildings?bbox=100.558,13.736,100.562,13.740");
-    expect(res.status).toBe(500);
-    const text = await res.text();
-    expect(text).not.toContain("neondb_owner");
-    expect(JSON.parse(text).error.code).toBe("internal");
-  });
-});
-
 describe("POST /api/site/plot-context", () => {
   it("returns the plot's context and passes the vertices through", async () => {
     const { app, calls } = appWith();
@@ -163,7 +92,6 @@ describe("POST /api/site/plot-context", () => {
         { index: 1, road: null },
         { index: 2, road: null },
       ],
-      buildingsOnPlot: [],
     });
     expect(calls.plots).toHaveLength(0);
   });
@@ -194,17 +122,55 @@ describe("POST /api/site/plot-context", () => {
     expect(res.status).toBe(400);
   });
 
-  it("rejects a plot spanning more than about a kilometre", async () => {
-    const { app } = appWith();
-    const res = await postPlot(app, {
-      vertices: [
-        [100.548, 13.73],
-        [100.574, 13.73],
-        [100.574, 13.75],
-      ],
-    });
+  /** A triangle whose bounding box is a square of about `sideM` metres near Asok. */
+  const triangle = (sideM: number) => {
+    const dLng = sideM / 108_135;
+    const dLat = sideM / 110_574;
+    return [
+      [100.556, 13.736],
+      [100.556 + dLng, 13.736],
+      [100.556 + dLng, 13.736 + dLat],
+    ];
+  };
+
+  it("rejects a plot spanning more than about 500 m without querying", async () => {
+    const { app, calls } = appWith();
+    const res = await postPlot(app, { vertices: triangle(600) });
     expect(res.status).toBe(400);
-    expect((await errorCode(res)).code).toBe("plot_too_large");
+    const error = await errorCode(res);
+    expect(error.code).toBe("plot_too_large");
+    expect(error.message).toContain("within about 500 m");
+    expect(calls.plots).toHaveLength(0);
+  });
+
+  it("accepts a plot of about 450 m across", async () => {
+    const { app, calls } = appWith();
+    const res = await postPlot(app, { vertices: triangle(450) });
+    expect(res.status).toBe(200);
+    expect(calls.plots).toHaveLength(1);
+  });
+
+  it("hides database errors, such as a statement timeout, behind a generic 500", async () => {
+    const { app } = appWith({
+      getPlotContext: async () => {
+        throw new Error("canceling statement due to statement timeout (user neondb_owner)");
+      },
+    });
+    const res = await postPlot(app, { vertices: PLOT });
+    expect(res.status).toBe(500);
+    const text = await res.text();
+    expect(text).not.toContain("neondb_owner");
+    expect(JSON.parse(text).error.code).toBe("internal");
+  });
+
+  it("does not return buildings on the plot", async () => {
+    const { app } = appWith();
+    const res = await postPlot(app, { vertices: PLOT });
+    expect(Object.keys((await res.json()) as object).sort()).toEqual([
+      "insideStudyArea",
+      "nearestStation",
+      "sides",
+    ]);
   });
 
   it("rejects bodies over 32 KB with 413", async () => {
@@ -257,34 +223,25 @@ describe("GET /api/site/area", () => {
     expect(body.attribution).toContain("OpenStreetMap");
     expect(body.geometry.coordinates[0]).toHaveLength(5);
     expect(body.data).toBeNull();
-  });
-});
-
-describe("rate limit on /api/site/*", () => {
-  it("allows the limit per client per window, then answers 429 with Retry-After", async () => {
-    let now = 0;
-    const { app } = appWith({}, { siteRateLimit: { limit: 2, windowMs: 1000, now: () => now } });
-    const get = (ip: string) =>
-      app.request("/api/site/area", { headers: { "x-forwarded-for": `${ip}, 10.0.0.1` } });
-
-    expect((await get("1.1.1.1")).status).toBe(200);
-    now = 400;
-    expect((await get("1.1.1.1")).status).toBe(200);
-    const limited = await get("1.1.1.1");
-    expect(limited.status).toBe(429);
-    expect(limited.headers.get("Retry-After")).toBe("1");
-    expect((await errorCode(limited)).code).toBe("rate_limited");
-
-    expect((await get("2.2.2.2")).status).toBe(200);
-
-    now = 1001;
-    expect((await get("1.1.1.1")).status).toBe(200);
+    // A cached null would hide the data for a day after seeding.
+    expect(res.headers.get("Cache-Control")).toBe("no-store");
   });
 
-  it("does not limit other API routes", async () => {
-    const { app } = appWith({}, { siteRateLimit: { limit: 1, windowMs: 60_000 } });
-    await app.request("/api/site/area");
-    expect((await app.request("/api/site/area")).status).toBe(429);
-    expect((await app.request("/api/health")).status).toBe(200);
+  it("is cacheable once the snapshot is loaded", async () => {
+    const snapshot: SnapshotInfo = {
+      source: "overpass",
+      attribution: "© OpenStreetMap contributors",
+      license: "ODbL",
+      licenseUrl: "https://www.openstreetmap.org/copyright",
+      fetchedAt: "2026-11-18T00:00:00.000Z",
+      osmBaseAt: "2026-06-01T00:00:00.000Z",
+      bbox: [100.547, 13.728, 100.575, 13.752],
+      counts: { buildings: 5766, roads: 1691, stations: 7 },
+    };
+    const { app } = appWith({ getSnapshotInfo: async () => snapshot });
+    const res = await app.request("/api/site/area");
+    expect(res.status).toBe(200);
+    expect(res.headers.get("Cache-Control")).toContain("s-maxage=86400");
+    expect(((await res.json()) as { data: unknown }).data).toEqual(snapshot);
   });
 });

@@ -1,6 +1,8 @@
+import { sql } from "drizzle-orm";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import type { Database } from "./client";
 import type * as Queries from "./site-queries";
+import type * as Timeout from "./statement-timeout";
 
 /**
  * Runs the real SQL against the seeded database. Skipped unless DATABASE_URL is set, e.g.
@@ -20,11 +22,13 @@ const SOI_19_PLOT: [number, number][] = [
 describe.skipIf(!hasDatabase)("site queries against PostGIS", () => {
   let db: Database;
   let queries: typeof Queries;
+  let timeout: typeof Timeout;
 
   beforeAll(async () => {
     // Imported here so that loading this file without a database does not validate env.
     ({ db } = await import("./client"));
     queries = await import("./site-queries");
+    timeout = await import("./statement-timeout");
   });
 
   afterAll(async () => {
@@ -44,19 +48,25 @@ describe.skipIf(!hasDatabase)("site queries against PostGIS", () => {
     expect(context.nearestStation?.distanceM).toBeLessThan(400);
   });
 
-  it("returns buildings around Asok with heights, nearest the centre first", async () => {
-    const result = await queries.getSiteBuildings(db, [100.558, 13.736, 100.562, 13.74], 5000);
-    expect(result.features.length).toBeGreaterThan(50);
-    expect(result.truncated).toBe(false);
-    const first = result.features[0];
-    expect(first?.geometry.type).toBe("MultiPolygon");
-    expect(first?.properties.heightM).toBeGreaterThan(0);
+  it("returns only the station and side roads", async () => {
+    const context = await queries.getPlotContext(db, SOI_19_PLOT);
+    expect(Object.keys(context).sort()).toEqual(["nearestStation", "sides"]);
   });
 
-  it("caps the feature count and says so", async () => {
-    const result = await queries.getSiteBuildings(db, [100.558, 13.736, 100.562, 13.74], 10);
-    expect(result.features).toHaveLength(10);
-    expect(result.truncated).toBe(true);
+  it("bounds queries with a statement timeout that ends with the transaction", async () => {
+    const shown = await timeout.withStatementTimeout(db, async (tx) => {
+      const result = await tx.execute<{ statement_timeout: string }>(sql`show statement_timeout`);
+      return result.rows[0]?.statement_timeout;
+    });
+    expect(shown).toBe("3s");
+
+    await expect(
+      timeout.withStatementTimeout(db, (tx) => tx.execute(sql`select pg_sleep(1)`), 100),
+    ).rejects.toMatchObject({ cause: { code: "57014" } });
+
+    // SET LOCAL must not leak to the next user of the pooled connection.
+    const after = await db.execute<{ statement_timeout: string }>(sql`show statement_timeout`);
+    expect(after.rows[0]?.statement_timeout).not.toBe("100ms");
   });
 
   it("survives a self-crossing plot", async () => {
