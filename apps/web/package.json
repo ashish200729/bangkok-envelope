@@ -1,0 +1,40 @@
+{
+  "name": "@envelope/web",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "next dev --port 3100",
+    "build": "next build",
+    "start": "next start --port 3100",
+    "typecheck": "next typegen && tsc",
+    "e2e": "playwright test"
+  },
+  "dependencies": {
+    "@envelope/api": "workspace:*",
+    "@envelope/auth": "workspace:*",
+    "@envelope/db": "workspace:*",
+    "@envelope/engine": "workspace:*",
+    "@envelope/ui": "workspace:*",
+    "@t3-oss/env-nextjs": "catalog:",
+    "better-auth": "catalog:",
+    "hono": "catalog:",
+    "lucide-react": "catalog:",
+    "next": "catalog:",
+    "next-themes": "catalog:",
+    "react": "catalog:",
+    "react-dom": "catalog:",
+    "sonner": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@envelope/tsconfig": "workspace:*",
+    "@playwright/test": "catalog:",
+    "@tailwindcss/postcss": "catalog:",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "@types/react-dom": "catalog:",
+    "tailwindcss": "catalog:",
+    "typescript": "catalog:"
+  }
+}

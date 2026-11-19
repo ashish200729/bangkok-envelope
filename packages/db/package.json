@@ -1,0 +1,31 @@
+{
+  "name": "@envelope/db",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./schema": "./src/schema/index.ts",
+    "./env": "./src/env.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "generate": "dotenv -e ../../apps/web/.env.local -- drizzle-kit generate",
+    "migrate": "dotenv -e ../../apps/web/.env.local -- drizzle-kit migrate",
+    "studio": "dotenv -e ../../apps/web/.env.local -- drizzle-kit studio"
+  },
+  "dependencies": {
+    "@t3-oss/env-core": "catalog:",
+    "drizzle-orm": "catalog:",
+    "pg": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@envelope/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/pg": "catalog:",
+    "dotenv-cli": "catalog:",
+    "drizzle-kit": "catalog:",
+    "typescript": "catalog:"
+  }
+}

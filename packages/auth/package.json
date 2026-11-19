@@ -1,0 +1,33 @@
+{
+  "name": "@envelope/auth",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./client": "./src/client.ts",
+    "./env": "./src/env.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc",
+    "schema": "dotenv -e ../../apps/web/.env.local -- auth generate --config src/auth.ts --output ../db/src/schema/auth.ts --yes"
+  },
+  "dependencies": {
+    "@better-auth/drizzle-adapter": "catalog:",
+    "@envelope/db": "workspace:*",
+    "@t3-oss/env-core": "catalog:",
+    "better-auth": "catalog:",
+    "zod": "catalog:"
+  },
+  "devDependencies": {
+    "@envelope/tsconfig": "workspace:*",
+    "@types/node": "catalog:",
+    "@types/react": "catalog:",
+    "auth": "1.7.17",
+    "dotenv-cli": "catalog:",
+    "typescript": "catalog:"
+  },
+  "peerDependencies": {
+    "react": "^19"
+  }
+}

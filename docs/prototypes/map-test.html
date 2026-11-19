@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Bangkok Envelope · map test</title>
+<!-- Throwaway test: MapLibre + OpenFreeMap 3D buildings + Terra Draw + deck.gl (interleaved). -->
+<link rel="stylesheet" href="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.css">
+<script src="https://unpkg.com/maplibre-gl@5.24.0/dist/maplibre-gl.js"></script>
+<script src="https://unpkg.com/terra-draw@1.39.0/dist/terra-draw.umd.js"></script>
+<script src="https://unpkg.com/terra-draw-maplibre-gl-adapter@1.5.0/dist/terra-draw-maplibre-gl-adapter.umd.js"></script>
+<script src="https://unpkg.com/deck.gl@9.3.12/dist.min.js"></script>
+<style>
+  html, body { margin: 0; height: 100%; font: 14px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  #map { position: absolute; inset: 0; }
+  .panel {
+    position: absolute; top: 12px; left: 12px; z-index: 2; width: 290px;
+    background: rgba(255,255,255,.95); border-radius: 10px; padding: 14px 16px;
+    box-shadow: 0 4px 18px rgba(0,0,0,.18); display: grid; gap: 10px;
+  }
+  .panel h1 { font-size: 15px; margin: 0; }
+  .panel p { margin: 0; color: #555; font-size: 12.5px; }
+  .row { display: flex; gap: 6px; flex-wrap: wrap; }
+  button {
+    font: inherit; font-size: 13px; padding: 6px 10px; border-radius: 6px;
+    border: 1px solid #c9ced3; background: #fff; cursor: pointer;
+  }
+  button.on { background: #2f6f9f; color: #fff; border-color: #2f6f9f; }
+  label { display: grid; gap: 4px; font-size: 12.5px; color: #333; }
+  .stats { font-variant-numeric: tabular-nums; font-size: 13px; display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; }
+  .stats b { font-weight: 600; }
+</style>
+</head>
+<body>
+<div id="map"></div>
+<div class="panel">
+  <h1>Map test · Asok, Bangkok</h1>
+  <p>Draw a plot (click corners, click the first point to close), or edit the sample plot by dragging its corners. The blue block is a deck.gl extrusion living in the same 3D scene as the OSM buildings.</p>
+  <div class="row">
+    <button id="btn-draw">Draw plot</button>
+    <button id="btn-edit" class="on">Edit plot</button>
+    <button id="btn-clear">Clear</button>
+  </div>
+  <div class="row">
+    <button id="btn-3d" class="on">3D buildings</button>
+    <button id="btn-pitch">Top view</button>
+  </div>
+  <label>Test block height: <span id="h-val">23</span> m
+    <input id="h" type="range" min="0" max="150" step="1" value="23">
+  </label>
+  <div class="stats">
+    <span>Plot area</span><b id="s-area">–</b>
+    <span>Vertices</span><b id="s-verts">–</b>
+    <span>Floors @ 3.2 m</span><b id="s-floors">–</b>
+  </div>
+</div>
+
+<script>
+// Asok intersection (Sukhumvit × Ratchadaphisek / Asok Montri)
+const CENTER = [100.5605, 13.7372];
+
+const map = new maplibregl.Map({
+  container: 'map',
+  style: 'https://tiles.openfreemap.org/styles/liberty',
+  center: CENTER,
+  zoom: 16.6,
+  pitch: 60,
+  bearing: -25,
+  maxPitch: 80,
+  hash: true,
+});
+map.addControl(new maplibregl.NavigationControl({ visualizePitch: true }), 'top-right');
+map.addControl(new maplibregl.ScaleControl({ unit: 'metric' }), 'bottom-left');
+
+// ---------- helpers ----------
+// Local equirectangular projection to metres around a reference point (fine at plot scale).
+function toMetres(ring) {
+  const [lon0, lat0] = ring[0];
+  const k = Math.cos(lat0 * Math.PI / 180);
+  const R = 6371008.8, d = Math.PI / 180;
+  return ring.map(([lon, lat]) => [(lon - lon0) * d * R * k, (lat - lat0) * d * R]);
+}
+function areaM2(ring) {
+  const p = toMetres(ring);
+  let a = 0;
+  for (let i = 0; i < p.length - 1; i++) a += p[i][0] * p[i + 1][1] - p[i + 1][0] * p[i][1];
+  return Math.abs(a) / 2;
+}
+
+let blockHeight = 23;
+let plotRing = null;
+
+// ---------- deck.gl overlay (interleaved = shares depth with the map's 3D buildings) ----------
+const overlay = new deck.MapboxOverlay({ interleaved: true, layers: [] });
+map.addControl(overlay);
+
+function renderDeck() {
+  const data = plotRing ? [{ polygon: plotRing }] : [];
+  overlay.setProps({
+    layers: [
+      new deck.PolygonLayer({
+        id: 'test-envelope',
+        data,
+        getPolygon: d => d.polygon,
+        extruded: true,
+        wireframe: true,
+        getElevation: () => blockHeight,
+        getFillColor: [47, 111, 159, 110],
+        getLineColor: [20, 60, 100, 255],
+        material: { ambient: 0.5, diffuse: 0.6, shininess: 20 },
+        updateTriggers: { getElevation: blockHeight },
+      }),
+    ],
+  });
+  document.getElementById('s-area').textContent =
+    plotRing ? `${Math.round(areaM2(plotRing)).toLocaleString()} m²` : '–';
+  document.getElementById('s-verts').textContent = plotRing ? plotRing.length - 1 : '–';
+  document.getElementById('s-floors').textContent = plotRing ? Math.floor(blockHeight / 3.2) : '–';
+}
+
+// ---------- Terra Draw ----------
+let draw;
+map.on('load', () => {
+  draw = new terraDraw.TerraDraw({
+    adapter: new terraDrawMaplibreGlAdapter.TerraDrawMapLibreGLAdapter({ map }),
+    modes: [
+      new terraDraw.TerraDrawPolygonMode({
+        styles: { fillColor: '#f2a65a', fillOpacity: 0.35, outlineColor: '#b3591a', outlineWidth: 2 },
+      }),
+      new terraDraw.TerraDrawSelectMode({
+        flags: {
+          polygon: {
+            feature: {
+              draggable: true,
+              coordinates: { midpoints: true, draggable: true, deletable: true },
+            },
+          },
+        },
+      }),
+    ],
+  });
+  draw.start();
+
+  // Sample plot: an irregular 5-sided plot near Asok
+  const sample = [
+    [100.55935, 13.73795], [100.56030, 13.73810], [100.56055, 13.73745],
+    [100.56000, 13.73700], [100.55925, 13.73725], [100.55935, 13.73795],
+  ];
+  draw.addFeatures([{
+    id: crypto.randomUUID(),
+    type: 'Feature',
+    geometry: { type: 'Polygon', coordinates: [sample] },
+    properties: { mode: 'polygon' },
+  }]);
+  setMode('select');
+  syncFromDraw();
+
+  // Fires on every vertex drag → live update.
+  draw.on('change', syncFromDraw);
+  draw.on('finish', (id) => {
+    // keep a single plot: remove older polygons
+    const others = draw.getSnapshot().filter(f => f.geometry.type === 'Polygon' && f.id !== id);
+    if (others.length) draw.removeFeatures(others.map(f => f.id));
+    setMode('select');
+    syncFromDraw();
+  });
+});
+
+function syncFromDraw() {
+  const poly = draw.getSnapshot().find(f => f.geometry.type === 'Polygon' && f.geometry.coordinates[0].length >= 4);
+  plotRing = poly ? poly.geometry.coordinates[0] : null;
+  renderDeck();
+}
+
+// ---------- UI ----------
+const btnDraw = document.getElementById('btn-draw');
+const btnEdit = document.getElementById('btn-edit');
+function setMode(m) {
+  draw.setMode(m);
+  btnDraw.classList.toggle('on', m === 'polygon');
+  btnEdit.classList.toggle('on', m === 'select');
+}
+btnDraw.onclick = () => setMode('polygon');
+btnEdit.onclick = () => setMode('select');
+document.getElementById('btn-clear').onclick = () => { draw.clear(); setMode('polygon'); syncFromDraw(); };
+
+const btn3d = document.getElementById('btn-3d');
+btn3d.onclick = () => {
+  const on = !btn3d.classList.contains('on');
+  btn3d.classList.toggle('on', on);
+  if (map.getLayer('building-3d')) map.setLayoutProperty('building-3d', 'visibility', on ? 'visible' : 'none');
+};
+const btnPitch = document.getElementById('btn-pitch');
+btnPitch.onclick = () => {
+  const top = map.getPitch() > 5;
+  map.easeTo({ pitch: top ? 0 : 60, bearing: top ? 0 : -25, duration: 700 });
+  btnPitch.textContent = top ? '3D view' : 'Top view';
+};
+document.getElementById('h').oninput = (e) => {
+  blockHeight = +e.target.value;
+  document.getElementById('h-val').textContent = blockHeight;
+  renderDeck();
+};
+</script>
+</body>
+</html>

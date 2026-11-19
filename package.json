@@ -1,0 +1,27 @@
+{
+  "name": "bangkok-envelope",
+  "private": true,
+  "description": "What can be built on a Bangkok plot: rules, 3D envelope and concept designs.",
+  "packageManager": "pnpm@12.15.0",
+  "engines": {
+    "node": ">=24"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "typecheck": "turbo run typecheck",
+    "test": "turbo run test",
+    "e2e": "pnpm --filter @envelope/web e2e",
+    "check": "biome check .",
+    "check:fix": "biome check --write .",
+    "db:generate": "pnpm --filter @envelope/db generate",
+    "db:migrate": "pnpm --filter @envelope/db migrate",
+    "db:studio": "pnpm --filter @envelope/db studio",
+    "auth:schema": "pnpm --filter @envelope/auth schema"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "catalog:",
+    "turbo": "catalog:",
+    "typescript": "catalog:"
+  }
+}

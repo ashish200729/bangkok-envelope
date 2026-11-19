@@ -1,0 +1,4 @@
+{
+  "extends": "@envelope/tsconfig/base.json",
+  "include": ["src"]
+}
