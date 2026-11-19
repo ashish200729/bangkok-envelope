@@ -112,6 +112,7 @@ The mirror that answered (overpass.private.coffee) reported an OSM base date of 
 
 ## 25. Site API
 
+- _Removed in decision 34:_ `GET /api/site/buildings?bbox=w,s,e,n`, buildings on the plot, and the 1.2 km² plot limit (now 0.25 km²). The rate limit below now covers the whole API (decision 36).
 - `GET /api/site/buildings?bbox=w,s,e,n`: a box that only partly overlaps the study area is clipped to it (a map viewport at the area's edge is normal); a box that does not overlap is 400 `outside_study_area`; over 1.2 km² after clipping is 400 `bbox_too_large`. At most 5,000 features, nearest the box centre first, with `truncated: true` when capped (a 1 km² box around Asok holds about 900 buildings, 320 KB).
 - `POST /api/site/plot-context`: a plot with any corner outside the study area answers 200 with `insideStudyArea: false` and empty results rather than an error, so the UI can say "no site data here" without special-casing a failure. A plot whose bounding box exceeds 1.2 km² is 400 `plot_too_large`.
 - **Side → road matching**: for side i (vertex i → i + 1) take the road segments (from `ST_DumpSegments`) whose geodesic distance to the side's midpoint is within road width / 2 + 12 m and whose geodesic bearing is within 25° of the side's (either direction); the nearest wins. Motorways and their ramps never match (elevated, access-controlled; a plot cannot front them). Corner plots get one road per side.
@@ -167,3 +168,33 @@ The MNRE notification asks for an EIA report for condos and hotels of 80 units/r
 ## 33. Designs stay inside the live-update budget
 
 Plates are memoised per slice and per plate below, so the many programs the optimiser tries share their Clipper work, and floors within one slice reuse the plate below. Number formatting uses cached `Intl.NumberFormat`s (`toLocaleString` built one per call and showed up in profiles). On a laptop a 10-corner plot evaluates, envelopes and three designs included, in a median of about 12–20 ms warm (condo 12, hotel 16, office 20; the sample plot 2–6 ms); the test bound is a generous 100 ms.
+
+## 34. Less API surface: no buildings route, no buildings on the plot
+
+A security review found two expensive, unused paths. `GET /api/site/buildings?bbox=` served up to 5,000 building polygons per request and nothing in the app called it (the map draws buildings from the basemap's vector tiles). `buildingsOnPlot` in `POST /api/site/plot-context` ran `ST_Intersection` against every building the plot touched, the costliest query per request, and the client ignored it (it hides on-plot buildings from the vector tiles itself, decision 15). Both are gone, with their parser, limits, types and tests. The `site_buildings` table and its seed stay for a later feature; a future route needs a bounded query, the statement timeout (decision 35) and a test.
+
+`MAX_PLOT_BBOX_KM2` drops from 1.2 to 0.25 km² ("draw a plot within about 500 m"): a 500 m square is far beyond any development plot in ย.8–ย.10, and it caps how many roads the side-matching query scans.
+
+## 35. Statement timeout through Neon's pooler
+
+Every request-path query runs inside `withStatementTimeout` (`packages/db/src/statement-timeout.ts`): one transaction that first runs `SET LOCAL statement_timeout = '3000ms'`, so a slow or pathological plot is cancelled by Postgres (SQLSTATE 57014) and the API answers a generic 500. The pooled Neon URL goes through PgBouncer in transaction mode, which ignores startup options (`options=-c statement_timeout=…`), and a plain `SET` would stay on the server connection for the next client; `SET LOCAL` ends with the transaction. A transaction holds one connection, so `getPlotContext`'s two queries now run one after the other instead of in parallel; with the buildings query gone that costs little. `getSnapshotInfo` is cheap but bounded the same way. The integration test checks the setting, a cancelled `pg_sleep`, and that the setting does not leak.
+
+## 36. Rate limits on the whole API, and their serverless caveat
+
+The sliding-window limiter moved from the site routes into `createApp`, so it covers every `/api/*` request (health, me, site, auth and unknown paths): 120 a minute per client IP. `POST /api/auth/sign-in/anonymous` has a second, stricter limit of 10 per 10 minutes, applied before Better Auth runs, because each call writes a user and a session row. Better Auth's own limiter is switched on as well (`rateLimit.enabled`, memory storage, a `customRules` entry for `/sign-in/anonymous` with the same 10 per 600 s); it is defence in depth if the auth handler is ever mounted elsewhere. Better Auth reads only a single-address `x-forwarded-for`, which is what Vercel sends.
+
+Caveat: both limiters keep their counts in process memory. On Vercel every function instance has its own counts and a cold start resets them, so the real ceiling is the limit times the number of warm instances. They stop a loop from one client, not a distributed attacker. The upgrade is a shared store (Upstash Redis via Better Auth's `customStorage` and a Redis-backed limiter here) or Vercel's WAF rate-limit rules in front of `/api/*`; neither is set up yet.
+
+## 37. Production health says only "up"
+
+In production `GET /api/health` answers `{ status, database: { ok } }` (200 or 503, `no-store`): no Postgres, PostGIS or engine versions, timings or driver errors, which only help fingerprint the stack. Outside production it keeps the detailed body the `/status` page shows. The switch is `exposeDetails` in `createApp`'s deps, set from `NODE_ENV` in `packages/api/src/index.ts`, so tests cover both without touching `process.env`. The production summary is a middleware in front of the typed route, so `AppType` keeps the detailed shape the dev page reads. `/status` itself returns 404 in production; the e2e status tests run against the dev server. The Next route file exports only `GET` and `POST`, so other methods never reach Hono.
+
+## 38. Security headers and the Content Security Policy
+
+`apps/web/next.config.ts` sends on every route: `X-Content-Type-Options: nosniff`, `Referrer-Policy: strict-origin-when-cross-origin`, `X-Frame-Options: DENY`, `Permissions-Policy: camera=(), microphone=(), geolocation=(), payment=(), usb=()`, `Cross-Origin-Opener-Policy: same-origin`, and an enforced CSP:
+
+`default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob: https://tiles.openfreemap.org; font-src 'self' data:; connect-src 'self' https://tiles.openfreemap.org; worker-src 'self' blob:; child-src blob:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'; object-src 'none'`
+
+- `'unsafe-inline'` in `script-src` because Next's App Router inlines its bootstrap and flight data; nonces would make every page dynamic. `'unsafe-eval'` is added only in development (React refresh).
+- MapLibre loads its style, tiles, glyphs and sprites from tiles.openfreemap.org and starts its worker from a `blob:` URL.
+- Checked in Chrome against a production build: the map canvas renders, the plot context loads, no CSP violations in the console; the full e2e suite passes against the dev server with the dev policy. deck.gl is not on the page yet; if it (or loaders.gl) needs WebAssembly, add `'wasm-unsafe-eval'` to `script-src` and check again.
