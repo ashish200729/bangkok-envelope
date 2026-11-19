@@ -171,6 +171,22 @@ test("a corner placed near the first one does not close a narrow plot early", as
   await expect(sides(page)).toHaveCount(4);
 });
 
+test("Enter finishes a plot, as the drawing hints say", async ({ page }) => {
+  const project = await openMap(page);
+  await page.getByRole("button", { name: "Draw a new plot" }).click();
+  for (const c of [
+    [100.5599, 13.7383],
+    [100.5602, 13.7383],
+    [100.5602, 13.7386],
+  ] as LngLat[]) {
+    const pt = await project(c);
+    await page.mouse.click(pt.x, pt.y);
+  }
+  await expect(page.getByTestId("draw-hud")).toContainText("Enter finishes");
+  await page.keyboard.press("Enter");
+  await expect(sides(page)).toHaveCount(3);
+});
+
 /** Text of the labels MapLibre is drawing on one of our symbol layers. */
 function labels(page: Page, layer: string) {
   return page.evaluate(

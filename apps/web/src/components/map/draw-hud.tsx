@@ -31,7 +31,7 @@ function corners(n: number) {
 /** What a screen reader hears: it changes only when a corner is placed or removed. */
 function announcement(placed: readonly LngLat[]) {
   if (placed.length === 0)
-    return "Drawing a new plot. Click on the map to place each corner, then click the first corner to finish. Escape cancels; Backspace removes the last corner.";
+    return "Drawing a new plot. Click on the map to place each corner, then click the first corner or press Enter to finish. Escape cancels; Backspace removes the last corner.";
   const parts = [`${corners(placed.length)} placed.`];
   if (placed.length >= 2) parts.push(`Sides so far ${formatM(perimeterM(placed, false))}.`);
   if (placed.length >= 3) parts.push(`Area if closed ${formatM2(areaM2(placed))}.`);
@@ -88,6 +88,11 @@ export function DrawHud({ progress }: { progress: DrawProgress }) {
           <li className="font-medium text-foreground">Click to finish the plot</li>
         ) : (
           n >= 3 && <li>Click the first corner to finish</li>
+        )}
+        {n >= 3 && (
+          <li className="pointer-coarse:hidden">
+            <Key>Enter</Key> finishes
+          </li>
         )}
         <li className="pointer-coarse:hidden">
           <Key>Esc</Key> cancels
