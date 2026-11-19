@@ -129,3 +129,41 @@ The mirror that answered (overpass.private.coffee) reported an OSM base date of 
 - **Only suggested, with Apply**: neighbour sides matched later ("Faces Sukhumvit Road?") and roads whose name or width differ from OSM ("OSM suggests Soi Sukhumvit 19 · 8 m (estimated from road type)"). The sample keeps its hand-set 10 m road.
 - **Station distance** follows the detected station until the user types a value; "Use detected" goes back. A new plot (none of its corners kept) returns it to detected. Outside the study area a detected value is cleared.
 - Errors and plots outside the study area are inline notices in the panel, never toasts. Request state, auto-mark and station provenance live in `lib/site/store.ts`; the plot store only gained `updateSiteRoads`.
+
+## 27. Three concept designs, each a different trade-off
+
+- **A, Mid-rise**: a straight block below 23 m in the low-rise envelope. Every floor has one outline: the low-rise region at the block's top (its strictest height), capped to the open-ground footprint. The brief allowed each floor to take its own band; a straight block is what a developer would build under 23 m, and it keeps A distinct from C. Each block height is tried, since a taller block may get a smaller plate where the road plane bites.
+- **B, Podium + tower**: in the high-rise envelope (6 m clear from the ground up). Podium = lobby + parking floors filling the region, capped to the open-ground footprint. Tower = a rectangle of the use's target plate (condo 1,100, office 1,500, hotel 1,000 m²), long side along or across the longest road frontage, in proportions 1–2.5, centred on the podium's deepest point or slid up to 12 m away from that road; the candidate keeping the most area on the podium plus at the tower's estimated mid-height (where the road plane may cut) wins. Each tower floor is that rectangle clipped to its band, so a tower on a narrow road tapers. Tower floors stop at the caps, the envelope top, or under 250 m². B is dropped if it cannot reach 23 m.
+- **C, Stepped**: every floor as large as its own band allows, in the low-rise or (if allowed) high-rise envelope, whichever holds more floor area. Dropped when it repeats A (same floor count, floor area within 0.5%) and B exists, so the user does not see the same building twice; when B cannot exist (a plot under ~12 m wide at 23 m) A and C are both shown.
+- Order A, B, C. A plot whose low-rise region cannot hold a 50 m² floor gets no designs (envelope only); in the property test every plot with more than 400 m² of low-rise ground got at least two.
+
+## 28. Floor plates, partial floors and the envelope check
+
+- A floor occupying [z0, z1) is cut to the envelope slice holding z1 (its strictest point), intersected with the floor below, so no floor overhangs a smaller one. Slices nest, so this also lies within every lower slice.
+- If a plate splits, the floor keeps its largest piece; `Floor.outline` stays a single `Polygon` (no contract change).
+- The open-ground footprint cap and the partial top floor both shrink a plate by an even inward offset (Clipper, mitred), binary-searched on the distance until the area is at most the target (within 0.5 m²), then intersected with the original, so trimming can never step outside it.
+- `envelope.fit` is measured: for each floor, Clipper's difference against every slice the floor spans (worst slice counts), plus the whole floor when its top passes the envelope's top (or reaches 23 m for a low-rise). Pass below 0.05 m² (rounding). The high-rise design that fails the access test is checked against the geometry it was built in (the gate-off high-rise envelope).
+
+## 29. Parking: whole floors, counted in floor area, lobby first
+
+- Parking floor area counts towards FAR (2013 plan definition; only extra public parking near stations is exempt, cl. 54), so a design solves use area + parking area + lobby ≤ the floor-area cap.
+- Parking floors are whole floors at the bottom: a partial parking floor under full floors above would make the upper floors overhang it. Spare spaces are reported in `providedSpaces` (≥ `requiredSpaces`).
+- Ground floor: a 4.5 m lobby. Parking moves onto the ground floor (3 m) only when no lobby layout can meet the parking rule, as on small plots.
+- Required spaces (MR 7 cl. 3(1)): the larger of the use's rate (condo 1 per unit over 60 m², which is none with ~45 m² units; office 1 per 60 m² from 300 m²; hotel 10 for the first 30 rooms, 1 per 5 to 100, 1 per 10 beyond) and, for a large building, 1 per 120 m² of floor area outside the parking floors (our reading of "building area", which also avoids parking needing parking). 27 m² gross per space.
+- The optimiser tries footprints and numbers of parking floors (0–12) and keeps the layout with the most main-use area that meets parking; if none can, the one with the most area, and the parking check fails.
+
+## 30. OSR and open ground shape the footprint
+
+OSR is open ground ÷ total floor area, so it caps floor area at (plot − footprint) ÷ OSR. At full FAR in ย.10 (8 × 4% = 32%) a footprint at the 30% open-ground limit would fail OSR. When OSR binds, the optimiser also tries the footprint that leaves room for the full FAR (plot − OSR × cap) and one half-way, and keeps the best. With `openSpace` off, neither cap applies and both checks read "Switched off".
+
+## 31. A high-rise that the site may not hold is still shown
+
+If the access gate fails (road under 10 m or frontage under 12 m), `envelopes.highRise` stays null, but `analyseSite` also returns `highRiseGeometry` (the high-rise slices as if the gate were off) and B is built in it, failing `highRise.road` / `highRise.frontage` with the site's own messages. The 30,000 m² cap applies to B whenever the gate is on and no road of 18 m with 12 m of frontage exists; `highRise.largeRoad` passes while the design stays under 30,000 m². With the gate off the three access checks are "n/a". Designs keep within the plan's office and hotel size caps (hotel rooms = use area ÷ 70 m²), so those checks pass; the cap shows in the checklist.
+
+## 32. EIA is a warning, not a fail
+
+The MNRE notification asks for an EIA report for condos and hotels of 80 units/rooms or 4,000 m², and other buildings of 23 m or 10,000 m² (`EIA_RULES`, law id `eia`, https://www.onep.go.th/eia/). It is a process step before the permit, not a refusal, so the check is "warn" when a design reaches a threshold and "pass" otherwise; it never makes `passes` false. The clause is cited as "annex" because we have not verified the item number in the current notification.
+
+## 33. Designs stay inside the live-update budget
+
+Plates are memoised per slice and per plate below, so the many programs the optimiser tries share their Clipper work, and floors within one slice reuse the plate below. Number formatting uses cached `Intl.NumberFormat`s (`toLocaleString` built one per call and showed up in profiles). On a laptop a 10-corner plot evaluates, envelopes and three designs included, in a median of about 12–20 ms warm (condo 12, hotel 16, office 20; the sample plot 2–6 ms); the test bound is a generous 100 ms.

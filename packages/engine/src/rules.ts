@@ -18,6 +18,8 @@ export const RULE_IDS = [
   "use.size",
   "use.rooms",
   "parking.min",
+  "envelope.fit",
+  "eia.threshold",
 ] as const;
 
 export type RuleId = (typeof RULE_IDS)[number];
@@ -39,4 +41,6 @@ export const RULE_INFO = {
   "use.size": { label: "Operating area allowed for this use", unit: "m2" },
   "use.rooms": { label: "Hotel rooms allowed", unit: "rooms" },
   "parking.min": { label: "Parking spaces", unit: "spaces" },
+  "envelope.fit": { label: "Every floor inside the envelope", unit: "m2" },
+  "eia.threshold": { label: "Environmental impact assessment", unit: "m2" },
 } as const satisfies Record<RuleId, { label: string; unit: Unit }>;

@@ -1,5 +1,13 @@
 import { appliedRules } from "./applied-rules";
-import { buildSlices, type LocalSlice, type RegionCache, regionAt, toEnvelope } from "./envelope";
+import { buildDesigns } from "./designs";
+import {
+  buildSlices,
+  type LocalSlice,
+  MIN_SLICE_AREA_M2,
+  type RegionCache,
+  regionAt,
+  toEnvelope,
+} from "./envelope";
 import { assessHighRise, type RoadFrontage, roadFrontages } from "./high-rise";
 import type { EngineInput } from "./inputs";
 import type { EngineFailure, Evaluate, HighRiseAccess } from "./outputs";
@@ -21,6 +29,11 @@ export type SiteAnalysis = {
   /** Null exactly when `highRise.allowed` is false. */
   highRiseSlices: readonly LocalSlice[] | null;
   highRise: HighRiseAccess;
+  /**
+   * The high-rise envelope as if the access gate were off, so a design can show why a high-rise
+   * fails here. Null only when nothing is left at 23 m after the clearance.
+   */
+  highRiseGeometry: readonly LocalSlice[] | null;
   cache: RegionCache;
 };
 
@@ -48,10 +61,15 @@ export function analyseSite(
   const frontages = roadFrontages(plot.edges);
   const areaAtThreshold = regionAt(plot, "highRise", threshold, toggles, cache).areaM2;
   const highRise = assessHighRise(frontages, areaAtThreshold, toggles);
-  const highRiseSlices = highRise.allowed
-    ? buildSlices(plot, "highRise", toggles, ENVELOPE_CEILING_M, cache)
-    : null;
-  return { ok: true, site: { plot, frontages, lowRise, highRiseSlices, highRise, cache } };
+  const highRiseGeometry =
+    areaAtThreshold >= MIN_SLICE_AREA_M2
+      ? buildSlices(plot, "highRise", toggles, ENVELOPE_CEILING_M, cache)
+      : null;
+  const highRiseSlices = highRise.allowed ? highRiseGeometry : null;
+  return {
+    ok: true,
+    site: { plot, frontages, lowRise, highRiseSlices, highRise, highRiseGeometry, cache },
+  };
 }
 
 export const evaluate: Evaluate = (input) => {
@@ -72,6 +90,6 @@ export const evaluate: Evaluate = (input) => {
       highRise: site.highRiseSlices ? toEnvelope(site.highRiseSlices, projection) : null,
     },
     highRise: site.highRise,
-    designs: [],
+    designs: buildDesigns(input, site),
   };
 };
