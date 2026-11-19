@@ -155,6 +155,14 @@ test("selecting a design draws its floors and every schedule adds up", async ({ 
   const total = await first.getByTestId("schedule-total").textContent();
   await expect(first.locator("dl")).toContainText(total ?? "missing");
 
+  const m2 = (text: string) => Number(text.replace(/[^\d]/g, ""));
+  for (const card of await page.getByTestId("designs").locator("article").all()) {
+    const schedule = card.locator("table");
+    const rows = await schedule.locator("tbody tr td:last-child").allTextContents();
+    const shown = await schedule.getByTestId("schedule-total").textContent();
+    expect(rows.reduce((sum, row) => sum + m2(row), 0)).toBe(m2(shown ?? ""));
+  }
+
   const centre = await project(SAMPLE_CENTRE);
   await page.mouse.move(centre.x, centre.y);
   await expect(page.getByTestId("scene-tooltip")).toHaveText(/^Floor \d+ · \w+ · [\d,]+ m²$/);
@@ -173,3 +181,65 @@ test("dragging a plot corner reshapes the envelope without a reload", async ({ p
   await page.mouse.up();
   expect(await notReloaded(page)).toBe(true);
 });
+
+test("a road width the law cannot use is flagged, and the last valid width stays in use", async ({
+  page,
+}) => {
+  await openTool(page);
+  const width = page.getByLabel("Soi Sukhumvit 19 width");
+  await width.fill("20");
+  await width.fill("201");
+  await expect(width).toHaveAttribute("aria-invalid", "true");
+  await expect(
+    page.getByText("Enter a road width from 0.5 to 200 m. Still using 20 m."),
+  ).toBeVisible();
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/\(20 m\)/);
+  await width.fill("-5");
+  await expect(page.getByText("Still using 20 m.")).toBeVisible();
+  await width.blur();
+  await expect(width).toHaveValue("20");
+  await expect(width).not.toHaveAttribute("aria-invalid");
+
+  await width.fill("200");
+  await openTab(page, "Rules");
+  await expect(page.getByTestId("sum-max-height")).toHaveText("No limit");
+  await expect(page.getByText(/height plane does not bind/)).toBeVisible();
+  await expect(page.getByText("Height plane switched off")).toHaveCount(0);
+});
+
+test("the floor area bonus can be typed freely and is limited to 0–20%", async ({ page }) => {
+  await openTool(page);
+  await openTab(page, "Rules");
+  const bonus = page.getByLabel("Floor area bonus claimed");
+  await bonus.fill("");
+  await bonus.pressSequentially("15", { delay: 50 });
+  await expect(bonus).toHaveValue("15");
+  await expect(page.getByTestId("rule-far.bonus")).toContainText("+1.2×");
+  await bonus.fill("25");
+  await expect(bonus).toHaveValue("25");
+  await expect(page.getByText("Enter a bonus from 0 to 20%. Still using 15%.")).toBeVisible();
+  await expect(page.getByTestId("rule-far.bonus")).toContainText("+1.2×");
+});
+
+for (const viewport of [
+  { width: 1440, height: 900 },
+  { width: 390, height: 844 },
+]) {
+  test(`the design comparison fits without sideways scrolling at ${viewport.width} px`, async ({
+    page,
+  }) => {
+    await page.setViewportSize(viewport);
+    await openTool(page);
+    await page.getByLabel("Soi Sukhumvit 19 width").fill("30");
+    await openTab(page, "Rules");
+    await page.getByLabel("Floor area bonus claimed").fill("20");
+    await openTab(page, "Designs");
+    const table = page.getByTestId("design-comparison");
+    await expect(table).toContainText("max 9.6×");
+    const [scroll, client] = await table.evaluate((t) => [
+      t.parentElement?.scrollWidth ?? 0,
+      t.parentElement?.clientWidth ?? 0,
+    ]);
+    expect(scroll).toBeLessThanOrEqual(client);
+  });
+}

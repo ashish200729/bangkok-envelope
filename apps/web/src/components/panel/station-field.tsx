@@ -1,14 +1,15 @@
 "use client";
 
 import { Button } from "@envelope/ui/components/button";
-import { Input } from "@envelope/ui/components/input";
 import { Label } from "@envelope/ui/components/label";
 import { TrainFront } from "lucide-react";
+import { STATION_DISTANCE_RULE } from "@/lib/plot/number-input";
 import { usePlotStore } from "@/lib/plot/store";
 import { resetToDetectedStation, typeStationDistance } from "@/lib/site/actions";
 import { currentContext } from "@/lib/site/request";
 import { useSiteStore } from "@/lib/site/store";
 import { stationDistanceM, stationLabel } from "@/lib/site/suggest";
+import { NumberField } from "./number-field";
 
 export function StationField() {
   const distance = usePlotStore((s) => s.settings.stationDistanceM);
@@ -20,24 +21,17 @@ export function StationField() {
   return (
     <div className="grid gap-1.5">
       <Label htmlFor="station-distance">Distance to nearest BTS/MRT station</Label>
-      <div className="flex items-center gap-2">
-        <Input
-          id="station-distance"
-          type="number"
-          inputMode="numeric"
-          min={0}
-          step={10}
-          placeholder="Unknown"
-          value={distance ?? ""}
-          onChange={(e) => {
-            const value = e.target.value === "" ? null : Number(e.target.value);
-            if (value === null || (Number.isFinite(value) && value >= 0)) {
-              typeStationDistance(value);
-            }
-          }}
-        />
-        <span className="text-muted-foreground text-sm">m</span>
-      </div>
+      <NumberField
+        id="station-distance"
+        value={distance}
+        rule={STATION_DISTANCE_RULE}
+        step={10}
+        inputMode="numeric"
+        placeholder="Unknown"
+        unit="m"
+        describe={(value) => (value === null ? "no distance" : `${value} m`)}
+        onValue={typeStationDistance}
+      />
       {station && (
         <div
           className="flex min-h-6 items-center justify-between gap-2 text-xs"

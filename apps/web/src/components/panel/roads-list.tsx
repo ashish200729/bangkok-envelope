@@ -2,14 +2,14 @@
 
 import type { Road } from "@envelope/engine";
 import { Button } from "@envelope/ui/components/button";
-import { Input } from "@envelope/ui/components/input";
 import { Label } from "@envelope/ui/components/label";
 import { cn } from "@envelope/ui/lib/utils";
-import { useState } from "react";
+import { ROAD_WIDTH_RULE } from "@/lib/plot/number-input";
 import { usePlotStore } from "@/lib/plot/store";
 import { acceptRoadSuggestion } from "@/lib/site/actions";
 import { roadSuggestionText, WIDTH_PROVENANCE } from "@/lib/site/suggest";
 import { useSiteSuggestions } from "@/lib/site/use-suggestions";
+import { NumberField } from "./number-field";
 
 export function RoadsList() {
   const roads = usePlotStore((s) => s.roads);
@@ -21,10 +21,7 @@ export function RoadsList() {
         return (
           <div key={road.id} className="grid gap-1.5" data-testid="road">
             <Label htmlFor={`road-${road.id}`}>{road.name ?? "Road"} width</Label>
-            <div className="flex items-center gap-2">
-              <WidthInput road={road} />
-              <span className="text-muted-foreground text-sm">m</span>
-            </div>
+            <WidthInput road={road} />
             <p
               className={cn(
                 "text-xs",
@@ -61,30 +58,17 @@ export function RoadsList() {
   );
 }
 
-/** Keeps the typed text (for example "8.") while following widths set elsewhere. */
 function WidthInput({ road }: { road: Road }) {
-  const [text, setText] = useState(String(road.widthM));
-  const [shown, setShown] = useState(road.widthM);
-  if (road.widthM !== shown) {
-    setShown(road.widthM);
-    setText(String(road.widthM));
-  }
   return (
-    <Input
+    <NumberField
       id={`road-${road.id}`}
-      type="number"
-      inputMode="decimal"
-      min={1}
-      max={200}
+      value={road.widthM}
+      rule={ROAD_WIDTH_RULE}
       step={0.5}
-      value={text}
-      onChange={(e) => {
-        setText(e.target.value);
-        const value = Number(e.target.value);
-        if (e.target.value !== "" && Number.isFinite(value) && value > 0 && value <= 200) {
-          setShown(value);
-          usePlotStore.getState().setRoadWidth(road.id, value);
-        }
+      unit="m"
+      describe={(value) => `${value} m`}
+      onValue={(value) => {
+        if (value !== null) usePlotStore.getState().setRoadWidth(road.id, value);
       }}
     />
   );

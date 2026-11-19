@@ -1,11 +1,12 @@
 "use client";
 
 import { ENVELOPE_CEILING_M, MAX_FAR_BONUS_PCT } from "@envelope/engine";
-import { Input } from "@envelope/ui/components/input";
 import { Label } from "@envelope/ui/components/label";
 import { Switch } from "@envelope/ui/components/switch";
 import { cn } from "@envelope/ui/lib/utils";
 import { useId, useMemo } from "react";
+import { NumberField } from "@/components/panel/number-field";
+import { FAR_BONUS_RULE } from "@/lib/plot/number-input";
 import { usePlotStore } from "@/lib/plot/store";
 import { formatArea, formatLength, formatNumber, formatRuleValue } from "@/lib/results/format";
 import { groupRules, type RuleRow, TOGGLE_LABEL } from "@/lib/results/rule-groups";
@@ -71,7 +72,7 @@ export function RulesTab({ scene }: { scene: Scene }) {
               <RuleRowItem key={row.key} row={row} />
             ))}
           </ul>
-          {group.id === "floor-area" && <FarBonusInput value={input.farBonusPct} />}
+          {group.id === "floor-area" && <FarBonusInput />}
         </section>
       ))}
 
@@ -141,32 +142,27 @@ function RuleRowItem({ row }: { row: RuleRow }) {
   );
 }
 
-function FarBonusInput({ value }: { value: number }) {
+/** Bound to the plot store, not the computed input, which lags while the engine runs. */
+function FarBonusInput() {
+  const value = usePlotStore((s) => s.settings.farBonusPct);
   const id = useId();
   return (
     <div className="grid gap-1.5 rounded-lg border border-dashed p-3">
       <Label htmlFor={id} className="text-sm">
         Floor area bonus claimed
       </Label>
-      <div className="flex items-center gap-2">
-        <Input
-          id={id}
-          type="number"
-          inputMode="decimal"
-          min={0}
-          max={MAX_FAR_BONUS_PCT}
-          step={1}
-          className="w-24"
-          value={value}
-          onChange={(e) => {
-            const next = Number(e.target.value);
-            if (e.target.value !== "" && Number.isFinite(next)) {
-              usePlotStore.getState().setFarBonus(next);
-            }
-          }}
-        />
-        <span className="text-muted-foreground text-sm">% of base FAR (0–{MAX_FAR_BONUS_PCT})</span>
-      </div>
+      <NumberField
+        id={id}
+        value={value}
+        rule={FAR_BONUS_RULE}
+        step={1}
+        className="w-24"
+        unit={`% of base FAR (0–${MAX_FAR_BONUS_PCT})`}
+        describe={(bonus) => `${bonus ?? 0}%`}
+        onValue={(bonus) => {
+          if (bonus !== null) usePlotStore.getState().setFarBonus(bonus);
+        }}
+      />
       <p className="text-muted-foreground text-xs">
         Earned with affordable housing, a public park, park-and-ride near a station, rainwater
         retention or a green building.
