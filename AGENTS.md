@@ -114,15 +114,49 @@ Internal packages export TypeScript source directly (no build step). `apps/web/n
 
 The shared types every workstream builds against. Change them only with care: they cross the Web Worker, the API and the database. Everything is plain JSON (no classes, Maps or Dates).
 
-| File          | Contents                                                                                                                                                                                                                            |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                              |
-| `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`) |
-| `law.ts`      | `LawId`, `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                                                              |
-| `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                     |
-| `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelope`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate`                                               |
-| `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                      |
-| `version.ts`  | `ENGINE_VERSION`, stamped on every result                                                                                                                                                                                           |
+| File          | Contents                                                                                                                                                                                                                                  |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                                    |
+| `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`)       |
+| `law.ts`      | `LawId`, `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                                                                    |
+| `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                           |
+| `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelopes: { lowRise, highRise }`, `highRise: HighRiseAccess`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate` |
+| `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                            |
+| `version.ts`  | `ENGINE_VERSION`, stamped on every result                                                                                                                                                                                                 |
+
+The result, in short (plain JSON):
+
+```ts
+type EngineSuccess = {
+  ok: true;
+  version: string;
+  plotAreaM2: number;
+  rules: AppliedRule[]; // display order; per-road rules (setback.road, height.roadPlane) repeat once per road
+  envelopes: {
+    lowRise: Envelope; // 0 to 23 m (exclusive): road setback, 2 m / 3 m to neighbours, road height plane
+    highRise: Envelope | null; // 0 up: 6 m clearance on every side (or the road setback if larger), road plane
+  };
+  highRise: { allowed: boolean; checks: Check[]; maxGfaM2: number | null }; // null envelope ⇔ !allowed
+  designs: Design[];
+};
+type Envelope = { slices: EnvelopeSlice[]; maxHeightM: number; groundAreaM2: number };
+type EnvelopeSlice = { z0M: number; z1M: number; footprint: MultiPolygon; areaM2: number }; // valid for z0 ≤ z < z1
+// AppliedRule: { id, label, value, unit, source, affectsEnvelope, enabled, note? }
+```
+
+Engine core (built, phase 3). `evaluate` lives in `evaluate.ts`; the pieces a design generator needs are exported too:
+
+| File               | Contents                                                                                                                                                                      |
+| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projection.ts`    | `makeProjection(origin)` → `toLocal` / `toLngLat` (equirectangular, WGS84 metres per degree), `ringCentroid`. Local `XY` is metres, x east, y north                           |
+| `plot.ts`          | `preparePlot`: project around the centroid, drop zero-length sides, validate (errors as values), make the ring CCW. `LocalEdge` keeps the input edge index                    |
+| `rules-data.ts`    | Every number with its citation: `ZONE_RULES`, `LAW`, `USE_SIZE_RULES`; `roadSetbackM`, `boundaryDistanceM`, `roadPlaneDistanceM`, `farLimit`, `sizeCapForUse`, `openSpaceMin` |
+| `setbacks.ts`      | `edgeDistances(edges, "lowRise" \| "highRise", z, toggles)`: how far each side's cut reaches at height z (data: a list of distance rules per envelope)                        |
+| `region.ts`        | `allowedRegion`: plot minus a stadium (true segment distance) per side, via Clipper2 at 0.1 mm; `Region` holds local polygons, area and Clipper paths                         |
+| `envelope.ts`      | `regionAt(plot, kind, z, toggles)`, `buildSlices` (1 m bands, merged when equal, stop under 1 m²), `toEnvelope`                                                               |
+| `high-rise.ts`     | `roadFrontages`, `assessHighRise` (MR 33 cl. 2 access, 30,000 m² cap, fits after clearance)                                                                                   |
+| `applied-rules.ts` | `appliedRules`: the rules panel list                                                                                                                                          |
+| `evaluate.ts`      | `analyseSite` (local-metre analysis for designs: plot, frontages, slices, high-rise access, region cache) and `evaluate`                                                      |
 
 Rules of the contract:
 
@@ -133,14 +167,16 @@ Rules of the contract:
 - **Road width is the legal right-of-way** (เขตทาง). For a road edge, the road's property line is the plot edge; its centreline is `widthM / 2` outward and its far side `widthM` outward.
 - **Errors are values, not exceptions.** Geometry the engine cannot use returns `{ ok: false, error: { code } }`.
 
-### Planned engine algorithm (not built yet)
+### Engine algorithm
 
-1. Project the plot to local metres (equirectangular around the plot; error < 0.01% at plot scale).
+Steps 1–4 are built (phase 3); 5–6 are next.
+
+1. Project the plot to local metres (equirectangular around the plot centroid; error < 0.01% at plot scale).
 2. Label each plot edge as road-facing (with its road width) or neighbour boundary.
 3. Rules as data: a zone table plus law constants, each value with `source`.
-4. Envelope as height slices: for each height z (1 m steps), allowed region(z) = plot − ⋃ buffer(edge, setback(z)) − ⋃ buffer(far side of road, z/2); empty above 23 m when the site fails the high-rise test. Use Clipper2 (`clipper2-ts`) for offsets and booleans.
-5. Designs: A = mid-rise under 23 m; B = podium + tower using full FAR; C (optional) = stepped massing. Each carries a floor schedule; GFA = sum of floor areas.
-6. Checklist per design: value vs limit vs citation, pass / fail / warn.
+4. Two envelopes as height slices. For each 1 m band [z0, z1), region = plot − ⋃ stadium(side i, d_i(z1)), where d_i is the largest distance that applies to that side at z1 (road setback, neighbour distance, high-rise clearance, and for road sides the height plane z/2 − width). Cuts only grow with height, so each band starts from the band below. A band uses its top height because that is its strictest point. See `docs/decisions.md` §18–§21.
+5. Designs: A = mid-rise inside `lowRise`; B = podium + tower inside `highRise` using full FAR; C (optional) = stepped massing. Each carries a floor schedule; GFA = sum of floor areas. Respect `highRise.maxGfaM2`, `farLimit(zone, bonus, highRise)` and `sizeCapForUse`.
+6. Checklist per design: value vs limit vs citation, pass / fail / warn. Open space (30% / 10% of plot, `openSpaceMin`) and OSR are design checks, not envelope cuts; the `openSpace` toggle only switches those checks.
 
 Required tests: hand-checked rectangle (40 × 50 m on a 12 m road), concave and narrow plots, and property tests over random plots (every floor ⊂ its slice ⊂ plot; GFA ≤ FAR × area; open space + footprint = plot area).
 
