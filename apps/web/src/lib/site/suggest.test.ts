@@ -79,6 +79,28 @@ describe("autoMarkRoads", () => {
     expect(next && sideRole(next.draft, id("b"))).toEqual({ kind: "boundary" });
   });
 
+  it("gives sides along one street split into several OSM ways one shared road", () => {
+    const otherWay: SideRoad = { ...SUKHUMVIT, osmId: "way/2", distanceM: 20 };
+    const narrower: SideRoad = { ...SUKHUMVIT, osmId: "way/3", widthM: 20 };
+    const unnamed: SideRoad = { ...SOI_19, name: null, nameEn: null };
+    const matches = matchSides(IDS, [
+      { index: 0, road: SUKHUMVIT },
+      { index: 1, road: otherWay },
+      { index: 2, road: narrower },
+      { index: 3, road: unnamed },
+    ]);
+    const next = autoMarkRoads({ draft: plot(), roads: [] }, matches);
+    expect(next && roadOf(next, id("a"))).toBe(next && roadOf(next, id("b")));
+    expect(next?.roads.map((r) => `${r.name} ${r.widthM}`)).toEqual([
+      "Sukhumvit Road 30",
+      "Sukhumvit Road 20",
+      "Unnamed residential road 8",
+    ]);
+    const lane: SideRoad = { ...unnamed, osmId: "way/77" };
+    const withLane = next && markSide(next, matchSides(IDS, []), id("c"), lane);
+    expect(withLane?.roads).toHaveLength(4);
+  });
+
   it("gives sides along the same OSM way one shared road", () => {
     const matches = matchSides(IDS, [
       { index: 0, road: SOI_19 },

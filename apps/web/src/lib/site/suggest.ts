@@ -50,15 +50,22 @@ export function matchSides(
   return matches;
 }
 
-/** The road already standing for an OSM way: one created from it, or one a matched side faces. */
-function roadIdForWay(state: RoadState, matches: SideMatches, osmId: string): string | null {
-  const own = osmRoadId(osmId);
+/**
+ * The road already standing for an OSM way: one created from it, one a matched side faces, or
+ * one of the same name and width. OSM splits a street into many ways (and a divided road into two
+ * carriageways); counted as separate roads, a frontage along one street would be split and could
+ * fail the 12 m frontage rule for a high-rise.
+ */
+function roadIdForWay(state: RoadState, matches: SideMatches, osm: SideRoad): string | null {
+  const own = osmRoadId(osm.osmId);
   if (state.roads.some((road) => road.id === own)) return own;
   for (const vertex of state.draft.vertices) {
     const role = sideRole(state.draft, vertex.id);
-    if (role.kind === "road" && matches.get(vertex.id)?.osmId === osmId) return role.roadId;
+    if (role.kind === "road" && matches.get(vertex.id)?.osmId === osm.osmId) return role.roadId;
   }
-  return null;
+  if (osm.nameEn === null && osm.name === null) return null;
+  const { name, widthM } = roadFromOsm(osm);
+  return state.roads.find((road) => road.name === name && road.widthM === widthM)?.id ?? null;
 }
 
 /** Marks one side as facing the OSM road, reusing the road if another side already faces it. */
@@ -68,7 +75,7 @@ export function markSide(
   side: VertexId,
   osm: SideRoad,
 ): RoadState {
-  const existing = roadIdForWay(state, matches, osm.osmId);
+  const existing = roadIdForWay(state, matches, osm);
   if (!existing && state.roads.length >= MAX_ROADS) return state;
   const road = existing ? null : roadFromOsm(osm);
   return {
@@ -82,7 +89,8 @@ export function markSide(
 
 /**
  * For a plot with no road sides yet, marks every side the API matched to a road, one road per
- * OSM way. Null when nothing changes or the user has already marked a side.
+ * named street (OSM ways of the same name and width), else per OSM way. Null when nothing changes
+ * or the user has already marked a side.
  */
 export function autoMarkRoads(state: RoadState, matches: SideMatches): RoadState | null {
   const marked = state.draft.vertices.some((v) => sideRole(state.draft, v.id).kind === "road");
