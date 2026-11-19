@@ -262,3 +262,24 @@ Generated designs now stop at 80 floors (`MAX_FLOORS`) and drop a partial top fl
 ## 47. What the spec schema refuses
 
 0 or more than 80 floors, a floor under 2.6 m (MR 55 cl. 22) or over 8 m, an inset over 40 m, a unit size outside 20–400 m², unknown keys, and "tower" floors with `tower: null`. `buildCustomDesign` trusts its types like the rest of the engine, but a tower floor without a tower holds no area rather than throwing.
+
+## 48. Cost and return is a separate pure call, not part of the engine result
+
+`feasibilityFor(design, input, values)` (`packages/engine/src/feasibility/`) prices one design. It is not embedded in `EngineSuccess` or `Design`: the money assumptions change independently of the plot (a user editing a sale price should not re-run the envelope), custom designs from `buildCustomDesign` need the same numbers without a second code path, and keeping `Design` unchanged avoids touching the worker, API and stored shapes. It reads only the floors (area by use), `footprintM2 + openSpaceM2` (the plot area), `spec.unitSizeM2` and the input's building type, and runs in about 8 µs (1,000 calls under 50 ms is tested), so the UI can call it per design on every edit.
+
+## 49. How each use is valued
+
+- **Costs** are construction per m² of GFA by floor use, plus soft costs (12%) and contingency (8%), both on construction. Land is not a cost line; it is what the result is compared with. No high-rise premium: the research found none for Bangkok, and the office rate (30,000–35,000, BOI/Tractus 2025) is already for high-rise towers.
+- **Condo floors** are sold: residential area × 0.67 (the designs' `condoEfficiency`, so unit counts and sales agree) × the Sukhumvit launch average (242,130, C&W Q4 2025) less a 5% discount for slow absorption. The InterContinental Asoke (297,500) and STILL Sukhumvit 20 (410,000) are single, branded projects, so the submarket average is the default.
+- **Office and retail floors** are held: lettable area × asking rent × 12 × occupancy, less 20% running costs (NOI; an estimate, since Bangkok quoted rents generally include service), ÷ a cap rate (office 6%: prime CBD is 5.6% per JLL; retail 7%, unsourced).
+- **Hotel floors**: rooms (the designs' own count) × ADR (upscale 4,197) × occupancy (76.2%) × 365 × 35% NOI margin on room revenue ÷ 7%. Income capitalisation rather than a per-key value, because it responds to the user's ADR, occupancy and room count, and the two per-key data points disagree (7 m asking for a 120-key Sukhumvit 22 hotel, 18.5 m paid for the Hyatt Regency Sukhumvit). The defaults give about 5.8 m per key, which the sentence shows so the user can compare.
+- **Lobby, amenity and parking** have no direct value. No sourced car park income was found, so it is zero rather than guessed.
+- A design with sold and held uses is `kind: "mixed"`; GDV is the sum of sale values and capitalised values. Purchaser's costs on the investment value and the time to sell are not modelled.
+
+## 50. Left for land takes the profit on the land too
+
+Left for land L solves GDV = (costs + L) × (1 + margin), so L = GDV ÷ (1 + margin) − costs and the profit is margin × (costs + L). Taking the margin on building costs only would overstate what a developer can pay by margin × L, about ฿290 m for the sample condo tower. The verdict compares L with the market land cost, which is the same test as GDV ≥ (costs + land) × (1 + margin). The default margin, 20%, is Supalai's 16–19% net margin on sales expressed on cost.
+
+## 51. Land price and the honest answer on the sample plot
+
+Land cost = plot m² ÷ 4 (1 sq wah = 4 m²) × 2.80 m per sq wah (AREA's 2025 Sukhumvit–Asok average); the Treasury appraisal (750,000 per sq wah on Sukhumvit Road, 2023–26) is reported alongside as a lower, tax-only reference. At the defaults every sample design is short of the land price: the 10 m soi caps a high-rise at 30,000 m² and lobby plus parking take about a third of it, so a condo at the submarket average leaves about ฿1.45 bn for ฿2.44 bn of land. Covering the land takes a launch price of about 340,000 per m² (STILL Sukhumvit 20 launched at 410,000), which matches the luxury schemes Asok land is bought for. The model reports that rather than tuning defaults to make the land pay.

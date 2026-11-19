@@ -183,6 +183,20 @@ buildCustomDesign(input: EngineInput, spec: DesignSpec, id: `custom-${string}`):
 - `unitSizeM2` sizes condo units (condo, office) or hotel rooms (hotel); the other lodging use keeps its default.
 - Measuring and checking are one path (`designs/measure.ts`) for generated and edited designs. Studio helpers: `defaultFloorSpec(use, below?)`, `defaultTowerSpec(input)`, `describeSpecChange(prev, next)`, `USE_LABEL`.
 
+Cost and return (built, `feasibility/`, decisions 48–51). A separate pure call per design, not part of `EngineSuccess`, so generated and edited designs are priced the same way:
+
+```ts
+feasibilityFor(design: Design | CustomDesign, input: EngineInput, values?: FeasibilityValues): Feasibility;
+// costs { construction { totalTHB, byUse }, softCostsTHB, contingencyTHB, totalTHB (no land) },
+// value { kind: sale | investment | mixed, grossDevelopmentValueTHB, incomePerYearTHB | null, byUse },
+// marginTHB, leftForLandTHB, landCostTHB, landTreasuryCostTHB, landVerdict, landGapTHB, perM2, lines
+```
+
+- `FEASIBILITY_ASSUMPTIONS`: every money and ratio number with `{ value, unit, source, confidence, note }` (THB; ratios as fractions). Condo saleable efficiency is `DESIGN_ASSUMPTIONS.condoEfficiency`, not a copy.
+- User edits: validate with `feasibilityAssumptionsSchema.safeParse` (partial values only, bounded), then `resolveAssumptions(overrides)` → `FeasibilityValues`. `FEASIBILITY_KEYS` lists the keys; each `lines[i].keys` names the assumptions a sentence used.
+- Condo floors are sold; office, retail and hotel floors are valued on net income ÷ a cap rate; lobby, amenity and parking floors cost but earn nothing. Left for land = GDV ÷ (1 + margin) − costs (profit on all costs incl. land). Land = plot m² ÷ 4 (sq wah) × price.
+- Display with `formatTHB` ("฿2.48 bn", "฿330 m", "฿12,500"), `formatTHBPerM2`, `formatTHBPerSqWah`. Every figure is rough; the UI must show each assumption's confidence and source.
+
 Engine core (built, phase 3). `evaluate` lives in `evaluate.ts`; the pieces a design generator needs are exported too:
 
 | File               | Contents                                                                                                                                                                                |
