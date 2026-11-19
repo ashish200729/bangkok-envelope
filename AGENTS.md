@@ -51,25 +51,26 @@ Definitions (2013 plan, clause 4):
 - **FAR** = total floor area of all floors of all buildings ÷ plot area.
 - **OSR** = uncovered open ground on the plot ÷ **total floor area** (not ÷ plot). At least half of the open space must be permeable for planting.
 
-| Rule                       | Value                                                                                                            | Source                                                                                                        |
-| -------------------------- | ---------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
-| FAR max ย.8 / ย.9 / ย.10   | 6 / 7 / 8                                                                                                        | 2013 plan cl. 15 / 16 / 17                                                                                    |
-| OSR min ย.8 / ย.9 / ย.10   | 5% / 4.5% / 4%                                                                                                   | same clauses                                                                                                  |
-| Condo size cap in ย.8–ย.10 | none                                                                                                             | cl. 15–17 list none for อาคารอยู่อาศัยรวม                                                                        |
-| FAR bonus, combined cap    | +20%                                                                                                             | cl. 51–57 (affordable housing, public park, park-and-ride near stations, rainwater retention, green building) |
-| Height vs road             | height at any point ≤ 2 × horizontal distance to the far side of the nearest public road                         | BMA ord. cl. 49                                                                                               |
-| Road setback, road < 10 m  | ≥ 6 m from road centreline                                                                                       | BMA ord. cl. 50                                                                                               |
-| Road setback, road 10–20 m | ≥ road width / 10, from property line                                                                            | BMA ord. cl. 50                                                                                               |
-| Road setback, road > 20 m  | ≥ 2 m from property line                                                                                         | BMA ord. cl. 50                                                                                               |
-| Openings toward neighbours | ≥ 2 m (≤ 9 m height), ≥ 3 m (> 9 m)                                                                              | BMA ord. cl. 54                                                                                               |
-| High-rise threshold        | height ≥ 23 m (ground to roof deck)                                                                              | MR 33 cl. 1                                                                                                   |
-| High-rise site access      | frontage ≥ 12 m on a public road ≥ 10 m wide; ≥ 18 m road if total floor area > 30,000 m²                        | MR 33 cl. 2                                                                                                   |
-| High-rise clearance        | every part, basements included, ≥ 6 m from neighbouring plots and public road; 6 m fire lane around the building | MR 33 cl. 3–4                                                                                                 |
-| High-rise FAR ceiling      | ≤ 10                                                                                                             | MR 33 cl. 5                                                                                                   |
-| Open space, residential    | ≥ 30% of plot area                                                                                               | MR 33 cl. 6; BMA ord. cl. 52                                                                                  |
-| Large building             | > 2,000 m² total, or ≥ 15 m tall and > 1,000 m²                                                                  | MR 7                                                                                                          |
-| Extra-large building       | ≥ 10,000 m²                                                                                                      | MR 33 cl. 1                                                                                                   |
-| Parking, Bangkok           | condo: 1 per unit > 60 m²; large building: 1 per 120 m²; take the larger                                         | MR 7 cl. 3                                                                                                    |
+| Rule                       | Value                                                                                                                                                                 | Source                                                                                                        |
+| -------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------- |
+| FAR max ย.8 / ย.9 / ย.10   | 6 / 7 / 8                                                                                                                                                             | 2013 plan cl. 15 / 16 / 17                                                                                    |
+| OSR min ย.8 / ย.9 / ย.10   | 5% / 4.5% / 4%                                                                                                                                                        | same clauses                                                                                                  |
+| Condo size cap in ย.8–ย.10 | none                                                                                                                                                                  | cl. 15–17 list none for อาคารอยู่อาศัยรวม                                                                        |
+| FAR bonus, combined cap    | +20%                                                                                                                                                                  | cl. 51–57 (affordable housing, public park, park-and-ride near stations, rainwater retention, green building) |
+| Height vs road             | height at any point ≤ 2 × horizontal distance to the far side of the nearest public road                                                                              | BMA ord. cl. 49                                                                                               |
+| Road setback, road < 10 m  | ≥ 6 m from road centreline                                                                                                                                            | BMA ord. cl. 50                                                                                               |
+| Road setback, road 10–20 m | ≥ road width / 10, from property line                                                                                                                                 | BMA ord. cl. 50                                                                                               |
+| Road setback, road > 20 m  | ≥ 2 m from property line                                                                                                                                              | BMA ord. cl. 50                                                                                               |
+| Openings toward neighbours | ≥ 2 m (≤ 9 m height), ≥ 3 m (> 9 m)                                                                                                                                   | BMA ord. cl. 54                                                                                               |
+| High-rise threshold        | height ≥ 23 m (ground to roof deck)                                                                                                                                   | MR 33 cl. 1                                                                                                   |
+| High-rise site access      | frontage ≥ 12 m on a public road ≥ 10 m wide; ≥ 18 m road if total floor area > 30,000 m²                                                                             | MR 33 cl. 2                                                                                                   |
+| High-rise clearance        | every part, basements included, ≥ 6 m from neighbouring plots and public road; 6 m fire lane around the building                                                      | MR 33 cl. 3–4                                                                                                 |
+| High-rise FAR ceiling      | ≤ 10                                                                                                                                                                  | MR 33 cl. 5                                                                                                   |
+| Open space, residential    | ≥ 30% of plot area                                                                                                                                                    | MR 33 cl. 6; BMA ord. cl. 52                                                                                  |
+| Large building             | > 2,000 m² total, or ≥ 15 m tall and > 1,000 m²                                                                                                                       | MR 7                                                                                                          |
+| Extra-large building       | ≥ 10,000 m²                                                                                                                                                           | MR 33 cl. 1                                                                                                   |
+| Parking, Bangkok           | condo: 1 per unit > 60 m²; office ≥ 300 m²: 1 per 60 m²; shop ≥ 300 m²: 1 per 20 m²; hotel by rooms; mixed uses add up; large building: 1 per 120 m²; take the larger | MR 7 cl. 2, 3(1), 4                                                                                           |
+| Retail size cap            | commerce over 5,000 m² needs a 16 m road (ย.8) / 12 m (ย.9–10), over 10,000 m² 30 m / 16 m; a station within 500 m lifts both                                         | 2013 plan cl. 15(11), 16(9), 17(9)                                                                            |
 
 Useful consequences:
 
@@ -114,15 +115,16 @@ Internal packages export TypeScript source directly (no build step). `apps/web/n
 
 The shared types every workstream builds against. Change them only with care: they cross the Web Worker, the API and the database. Everything is plain JSON (no classes, Maps or Dates).
 
-| File          | Contents                                                                                                                                                                                                                                  |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                                    |
-| `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`)       |
-| `law.ts`      | `LawId` (incl. `eia`, the MNRE EIA notification), `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                           |
-| `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                           |
-| `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelopes: { lowRise, highRise }`, `highRise: HighRiseAccess`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate` |
-| `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                            |
-| `version.ts`  | `ENGINE_VERSION`, stamped on every result                                                                                                                                                                                                 |
+| File          | Contents                                                                                                                                                                                                                                                                                             |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                                                                                               |
+| `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`)                                                                  |
+| `law.ts`      | `LawId` (incl. `eia`, the MNRE EIA notification), `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                                                                                      |
+| `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                                                                                      |
+| `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelopes: { lowRise, highRise }`, `highRise: HighRiseAccess`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate`; `CustomDesign`, `CustomDesignResult`, `BuildCustomDesign` |
+| `spec.ts`     | Zod schemas for an editable design: `DesignSpec` (`name`, `envelope`, `fitToEnvelope`, `straight`, `floors: FloorSpec[]` 1–80, `tower: TowerSpec \| null`, `unitSizeM2`), `FloorSpec` (`use`, `heightM` 2.6–8, `plate: "envelope" \| "tower"`, `insetM` 0–40), `TowerSpec`                           |
+| `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                                                                                       |
+| `version.ts`  | `ENGINE_VERSION`, stamped on every result                                                                                                                                                                                                                                                            |
 
 The result, in short (plain JSON):
 
@@ -142,12 +144,14 @@ type EngineSuccess = {
 type Envelope = { slices: EnvelopeSlice[]; maxHeightM: number; groundAreaM2: number };
 type EnvelopeSlice = { z0M: number; z1M: number; footprint: MultiPolygon; areaM2: number }; // valid for z0 ≤ z < z1
 // AppliedRule: { id, label, value, unit, source, affectsEnvelope, enabled, note? }
-type Design = {
-  id: "midrise" | "podium-tower" | "stepped";
+type Design<Id = DesignId> = {
+  id: Id; // DesignId = "midrise" | "podium-tower" | "stepped"; CustomDesign = Design<`custom-${string}`>
   name: string;
   summary: string; // one plain sentence
+  spec: DesignSpec; // the recipe; buildCustomDesign(input, spec, id) rebuilds these floors (± 0.5 m² each)
   envelope: "lowRise" | "highRise"; // the envelope it was fitted to and checked against
   floors: Floor[]; // bottom to top; Floor = { level, z0M, heightM, use, outline: Polygon (lng/lat, closed), areaM2 }
+  // use: lobby | parking | retail | amenity | residential | office | hotel; an empty floor has areaM2 0 and outline []
   heightM: number; // top of the last floor
   gfaM2: number; // exactly Σ floors[].areaM2
   farUsed: number;
@@ -155,7 +159,7 @@ type Design = {
   openSpaceM2: number; // plot − footprint
   osrUsed: number; // openSpace ÷ GFA
   useAreaM2: number; // main-use floors only (plan's "operating area")
-  keyCount: number | null; // condo units or hotel rooms; null for offices
+  keyCount: number | null; // condo units from residential floors or hotel rooms from hotel floors, by building type; null for offices
   parking: { requiredSpaces: number; providedSpaces: number };
   checks: Check[]; // Check = { ruleId, label, status: pass|fail|warn|n/a, actual, limit, unit, source, message }
   passes: boolean; // no check failed
@@ -163,6 +167,21 @@ type Design = {
 ```
 
 A floor's outline is the largest connected piece of its plate. A floor never extends past the floor below.
+
+Edited designs (the design studio, decisions 42–47):
+
+```ts
+buildCustomDesign(input: EngineInput, spec: DesignSpec, id: `custom-${string}`): CustomDesignResult;
+// { ok: true, design: CustomDesign } | { ok: false, error: { code: EngineErrorCode | "empty-design", message } }
+```
+
+- Validate a spec at the boundary with `designSpecSchema.safeParse` (a "tower" floor needs `tower`).
+- Floors stack bottom-up from 0. Plate = the region of `spec.envelope` valid for the floor's band (at its top; with `straight`, at the top of the highest floor that fits), or the tower rectangle cut to it, shrunk by `insetM`, then cut to the floor below. `lowRise` uses the 23 m low-rise slices; `highRise` the high-rise geometry as if the access gate were off (so an 8 m road still gets floors and fails `highRise.road`).
+- `fitToEnvelope: false` cuts to the plot instead, so `envelope.fit` reports the breach and everything else is still measured.
+- A floor left with under 1 m² stays in the list with `areaM2: 0` and a second, failing `envelope.fit` check names it. All floors empty → `empty-design`.
+- Tower: `widthM` runs along `rotationDeg` clockwise from east (0 east, 90 south), centred `offsetM` (x east, y north) from the deepest point of the low-rise ground slice.
+- `unitSizeM2` sizes condo units (condo, office) or hotel rooms (hotel); the other lodging use keeps its default.
+- Measuring and checking are one path (`designs/measure.ts`) for generated and edited designs. Studio helpers: `defaultFloorSpec(use, below?)`, `defaultTowerSpec(input)`, `describeSpecChange(prev, next)`, `USE_LABEL`.
 
 Engine core (built, phase 3). `evaluate` lives in `evaluate.ts`; the pieces a design generator needs are exported too:
 
@@ -181,18 +200,22 @@ Engine core (built, phase 3). `evaluate` lives in `evaluate.ts`; the pieces a de
 
 Designs (built, phase 5), in `designs/`:
 
-| File             | Contents                                                                                                                                                                            |
-| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `assumptions.ts` | `DESIGN_ASSUMPTIONS`: every non-law number (floor heights, 27 m² per parking space, 45 m² units at 0.67, 70 m² per hotel key, tower plates…) with source and confidence; `keyCount` |
-| `parking.ts`     | `PARKING_RULES` (MR 7 cl. 3(1) rates), `spacesForUse`, `isLargeBuilding`, `requiredSpaces` (the larger of the use's rate and 1 per 120 m²)                                          |
-| `plates.ts`      | Clipper plate helpers: largest piece, intersect, `insetToArea` (even inward offset, binary search), `deepestPoint`, rectangles, `toPolygon`                                         |
-| `stack.ts`       | `Program` (ground use + whole parking floors), `PlateCache` (plates per slice, memoised), `steppedStack` (each floor = its top slice ∩ the floor below)                             |
-| `mid-rise.ts`    | Scheme A: straight block under 23 m, one outline (low-rise region at the block's top, capped to the open-ground footprint)                                                          |
-| `tower.ts`       | Scheme B: podium (lobby + parking) filling the high-rise region, tower rectangle chosen by `towerBase`                                                                              |
-| `stepped.ts`     | Scheme C: every floor as large as its own band allows                                                                                                                               |
-| `program.ts`     | `Limits`, `bestLayout` (tries footprints and parking-floor counts, solves use area + parking within the caps, trims the top floor)                                                  |
-| `checks.ts`      | `designChecks` (FAR, high-rise FAR ceiling, OSR, open ground, envelope fit measured by Clipper, height or high-rise access, use size, parking, EIA), `EIA_RULES`                    |
-| `index.ts`       | `limitsFor`, `buildDesigns`                                                                                                                                                         |
+| File             | Contents                                                                                                                                                                                                            |
+| ---------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assumptions.ts` | `DESIGN_ASSUMPTIONS`: every non-law number (floor heights, 27 m² per parking space, 45 m² units at 0.67, 70 m² per hotel key, tower plates…) with source and confidence; `keyCount`                                 |
+| `parking.ts`     | `PARKING_RULES` (MR 7 cl. 3(1) rates, retail 1 per 20 m²), `spacesByUse` (uses added up, cl. 4), `requiredSpacesFor(mix)` (the larger of that and 1 per 120 m²), `requiredSpaces` / `spacesForUse` for one main use |
+| `plates.ts`      | Clipper plate helpers: largest piece, intersect, `insetToArea` (even inward offset, binary search), `deepestPoint`, rectangles, `toPolygon`                                                                         |
+| `stack.ts`       | `Program` (ground use + whole parking floors), `PlateCache` (plates per slice, memoised), `steppedStack` (each floor = its top slice ∩ the floor below)                                                             |
+| `mid-rise.ts`    | Scheme A: straight block under 23 m, one outline (low-rise region at the block's top, capped to the open-ground footprint)                                                                                          |
+| `tower.ts`       | Scheme B: podium (lobby + parking) filling the high-rise region, tower rectangle chosen by `towerBase`                                                                                                              |
+| `stepped.ts`     | Scheme C: every floor as large as its own band allows                                                                                                                                                               |
+| `program.ts`     | `Limits`, `bestLayout` (tries footprints and parking-floor counts, solves use area + parking within the caps, trims the top floor)                                                                                  |
+| `checks.ts`      | `designChecks` (FAR, high-rise FAR ceiling, OSR, open ground, envelope fit measured by Clipper, empty floors, height or high-rise access, use size per capped use present, parking, EIA), `EIA_RULES`               |
+| `measure.ts`     | `measureDesign`: the one measuring path (floors, areas by use, keys, parking, checklist) for generated and edited designs                                                                                           |
+| `recipe.ts`      | `specOf`: a generated design's `DesignSpec` from the cuts it was built with                                                                                                                                         |
+| `custom.ts`      | `buildCustomDesign`, `customDesign`, `cutFloors` (the spec's floors cut bottom-up); remembers the latest site analysis                                                                                              |
+| `studio.ts`      | `defaultFloorSpec`, `defaultTowerSpec`, `describeSpecChange`, `USE_LABEL`                                                                                                                                           |
+| `index.ts`       | `limitsFor`, `buildDesigns`                                                                                                                                                                                         |
 
 Rules of the contract:
 
@@ -358,4 +381,5 @@ Then:
 - Done: site data backend (phase 6): OSM snapshot of Asok in PostGIS (5,766 buildings, 1,691 roads, 7 stations), `/api/site/*` routes. Not yet consumed by the web app.
 - Done: backend hardening after a security review: `/api/site/buildings` and `buildingsOnPlot` removed, statement timeouts, API-wide rate limits, production health summary, security headers and CSP (decisions 34–38).
 - Done: engine designs and checklists (phase 5, engine side): three concept designs per plot with floor schedules and checklists; `evaluate` stays under ~20 ms on a 10-corner plot.
+- Done: editable designs, engine side: `Design.spec`, `buildCustomDesign` (same cut, measure and checks as the generated designs), retail and amenity floors, mixed-use parking and size caps, studio helpers (decisions 42–47). The studio UI is not built.
 - Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.

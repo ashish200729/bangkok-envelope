@@ -224,3 +224,41 @@ If the worker cannot start (an old browser or a stricter embedder), the runner e
 - **No site data is not an error.** `plot_too_large` from the API is shown like a plot outside the study area: a plain notice, no Retry.
 - **Closing a drawn plot** needs a click within 16 px of the first corner, 28 px on touch screens (Terra Draw's default of 40 px closed narrow plots early). Enter still finishes.
 - **The API's own errors use documented codes.** A body that is not JSON is `invalid_request`; a body not sent as `application/json` is 415 `unsupported_media_type` rather than a misleading "vertices: expected array".
+
+## 42. Edited designs go through the same cut, measure and checklist as generated ones
+
+`buildCustomDesign(input, spec, id)` analyses the site, stacks the spec's floors from 0 and cuts each plate with `cutPlate` (`designs/plates.ts`): the base (the envelope region valid for the floor's band, or the tower rectangle cut to it) shrunk by `insetM` (Clipper mitred offset of its largest piece, intersected with the original), then intersected with the floor below. The generators use the same function for every plate they make, including the trimmed top floor, which is now an even inset of the shape the floor was cut from (kept inside the floor below) rather than of the floor itself. Then `measureDesign` (`designs/measure.ts`) does the floor list, GFA, areas by use, keys, parking and `designChecks` for both, so a rule cannot drift between them.
+
+- `spec.envelope: "highRise"` uses `highRiseGeometry` (the gate-off slices), as Design B does: a site failing the access test still gets floors, and `highRise.road` / `highRise.frontage` fail with the site's own messages. `"lowRise"` uses the low-rise slices and their 23 m ceiling; floors above it hold nothing (fit on) or are reported outside (fit off).
+- `fitToEnvelope: false` replaces the region with the plot polygon (inset by `insetM`); the tower is cut to the plot. Every floor is still inside the plot and inside the floor below; `envelope.fit` measures the breach.
+- A floor under 1 m² is kept (the user asked for it) with `areaM2: 0`, `outline: []`, and a second `envelope.fit` line fails, naming the floors in the 1-based numbering of the schedule ("Floors 23, 24 and 25 have no floor area…"). A new `RuleId` would have broken `Record<RuleId, …>` maps in the web app. All floors empty returns `{ ok: false, error: { code: "empty-design" } }`.
+- The latest site analysis is remembered by the input's JSON, since the studio edits only the spec: a 40-floor tower spec on a 10-corner plot builds in about 1.2 ms (median, warm; the first call with a new plot adds the 4–8 ms site analysis). The test bound is 15 ms.
+
+## 43. `Design.spec`, `straight`, and how exact the reproduction is
+
+Every generated design carries `spec: DesignSpec` so "Customise" starts from exactly that building, and `Design` became generic (`Design<Id = DesignId>`, `CustomDesign = Design<CustomDesignId>`) so the web app's `DesignId` uses compile unchanged.
+
+The mid-rise block (decision 27) cuts every floor to the region at the **block's** top, not each floor's own top, which `FloorSpec` alone could not express. `DesignSpec.straight` (approved contract change) says exactly that: floors are cut at the top of the highest floor that still fits, so the walls rise straight. A is `straight: true`; B and C are false.
+
+Each generated floor records its recipe (plate source and inset), so B and C, and A in the usual case, rebuild bit-for-bit. When the optimiser drops whole floors from a straight block after planning it (parking-starved layouts, about 1 in 280 random plots), the actual top can sit in a lower, larger slice; `specOf` then finds each floor's inset again by area from that slice, so areas match within 0.5 m² but the outline can differ by a few centimetres. Tested on the sample and 50 random plots: same uses, heights and floor count, each floor within 0.5 m².
+
+Generated designs now stop at 80 floors (`MAX_FLOORS`) and drop a partial top floor whose inset would exceed 40 m (`MAX_INSET_M`), so their spec is always valid. Neither happened on the 150-plot property test (tallest 46 floors).
+
+## 44. Tower rectangle convention
+
+`TowerSpec.widthM` runs along `rotationDeg`, measured **clockwise from east** (0 east, 90 south, −90 north), so the direction is (cos θ, −sin θ) in local x east, y north; `depthM` is across it. The centre is `offsetM` from the site anchor: the deepest point (centre of the deepest even inward offset) of the **low-rise ground slice**. It does not depend on the envelope the spec uses, so switching envelope does not move the tower; it moves when the plot, its roads or the setback toggles change. Generated B is built from its own spec (anchor + offset, angle), so the rectangle the studio draws is the one the design used. `defaultTowerSpec(input)` gives a tower for a design that has none: the type's target plate at 1.5 : 1 along the longest road, on the anchor.
+
+## 45. Mixed uses: keys, parking and size caps per floor use
+
+- Keys: condo units = residential floor area × 0.67 ÷ unit size; hotel rooms = hotel floor area ÷ m² per key. `unitSizeM2` sizes the building type's lodging use (condo units in a condo or office, rooms in a hotel); the other keeps its default (45 m², 70 m²). `keyCount` is the building type's own count (units for a condo, rooms for a hotel, null for an office).
+- Parking (MR 7): required = max(large-building rate, Σ per-use counts). Cl. 4 says each use of a mixed building needs its own count "altogether", and cl. 3(1)(H) takes the larger of that and 1 per 120 m² of building area (outside parking, as before). New: shops (MR 7's "department", cl. 1(10): a building or part for showing and selling goods) need 1 per 20 m², fraction counted as 20 m², from 300 m² (cl. 2(5), 3(1)(E)). Amenity floors have no rate of their own; they count toward GFA and the 1 per 120 m². A mixed design cites "MR 7 cl. 3(1), 4".
+- Size caps apply to the floors of each capped use, not only the building type: a condo with office floors gets the office operating-area check (`use.size`), hotel floors the room check (`use.rooms`), retail floors a retail check (`use.size`). Retail reads the plan's "การประกอบพาณิชยกรรม" (commerce) clauses: ย.8 cl. 15(11): over 5,000 m² needs a 16 m road, over 10,000 m² a 30 m road; ย.9 cl. 16(9) and ย.10 cl. 17(9): 12 m and 16 m; within 500 m of a station both are lifted. Read in the Royal Gazette text. Office and hotel citations stay at the clause level.
+- EIA: lodging sizes apply when the design has residential or hotel floors (or is a condo/hotel), the other-building sizes when it has office or retail floors (or is an office). Generated designs read as before.
+
+## 46. Studio helpers
+
+`describeSpecChange(prev, next)` returns one sentence for the undo history ("Floor 8: Residential → Office", "Added floor 23 (Amenity)", "Envelope: high-rise → low-rise"); several edits read as the first two, or "…; and N more changes". Among identical neighbouring floors an insert or removal is reported at the last of them. `defaultFloorSpec(use, below?)` takes the floor below rather than the building type: a floor added on a tower continues the tower (plate and inset), and its height is the use's typical height (`USE_FLOOR_HEIGHT_M`; retail 4.5 m and amenity 4 m are new estimates in `DESIGN_ASSUMPTIONS`).
+
+## 47. What the spec schema refuses
+
+0 or more than 80 floors, a floor under 2.6 m (MR 55 cl. 22) or over 8 m, an inset over 40 m, a unit size outside 20–400 m², unknown keys, and "tower" floors with `tower: null`. `buildCustomDesign` trusts its types like the rest of the engine, but a tower floor without a tower holds no area rather than throwing.
