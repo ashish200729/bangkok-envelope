@@ -29,6 +29,8 @@ const MAIN_USE = { condo: "residential", office: "office", hotel: "hotel" } as c
 const FLOOR_HEIGHT: Record<FloorUse, number> = {
   parking: 3,
   lobby: 4.5,
+  retail: 4.5,
+  amenity: 4,
   residential: 3,
   office: 3.8,
   hotel: 3.2,

@@ -65,8 +65,11 @@ export {
 export { type Citation, formatCitation, LAWS, type Law, type LawId } from "./law";
 export {
   type AppliedRule,
+  type BuildCustomDesign,
   type Check,
   type CheckStatus,
+  type CustomDesignId,
+  type CustomDesignResult,
   DESIGN_IDS,
   type Design,
   type DesignId,
@@ -120,4 +123,15 @@ export {
   type ZoneRules,
 } from "./rules-data";
 export { type EnvelopeKind, edgeDistances } from "./setbacks";
+export {
+  type DesignSpec,
+  designSpecSchema,
+  FLOOR_USES,
+  type FloorSpec,
+  floorSpecSchema,
+  floorUseSchema,
+  PLATE_SOURCES,
+  type TowerSpec,
+  towerSpecSchema,
+} from "./spec";
 export { ENGINE_VERSION } from "./version";

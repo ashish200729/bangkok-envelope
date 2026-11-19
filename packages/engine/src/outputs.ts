@@ -2,6 +2,7 @@ import type { MultiPolygon, Polygon } from "./geo";
 import type { EngineInput } from "./inputs";
 import type { Citation } from "./law";
 import type { RuleId, Unit } from "./rules";
+import type { DesignSpec, FloorUseSpec } from "./spec";
 
 /** A rule as it applies to this plot, shown in the rules panel. */
 export type AppliedRule = {
@@ -76,7 +77,7 @@ export type HighRiseAccess = {
   maxGfaM2: number | null;
 };
 
-export type FloorUse = "parking" | "lobby" | "residential" | "office" | "hotel";
+export type FloorUse = FloorUseSpec;
 
 export type Floor = {
   /** 0 is the ground floor. */
@@ -90,6 +91,8 @@ export type Floor = {
 
 export const DESIGN_IDS = ["midrise", "podium-tower", "stepped"] as const;
 export type DesignId = (typeof DESIGN_IDS)[number];
+/** A user's edited design in the studio. */
+export type CustomDesignId = `custom-${string}`;
 
 export type Design = {
   id: DesignId;
@@ -148,3 +151,15 @@ export type EngineResult = EngineSuccess | EngineFailure;
 
 /** The engine's single entry point. Pure: the same input always gives the same result. */
 export type Evaluate = (input: EngineInput) => EngineResult;
+
+/** Result of turning an edited spec into a checked design. Errors are values, as everywhere. */
+export type CustomDesignResult =
+  | { ok: true; design: Design }
+  | { ok: false; error: { code: EngineErrorCode | "empty-design"; message: string } };
+
+/** Build and check a design from an edited spec, with the same rules as the generated ones. */
+export type BuildCustomDesign = (
+  input: EngineInput,
+  spec: DesignSpec,
+  id: CustomDesignId,
+) => CustomDesignResult;

@@ -58,6 +58,8 @@ export function formatCheckFigures(check: Check): string | null {
 export const FLOOR_USE_LABEL: Record<FloorUse, string> = {
   parking: "Parking",
   lobby: "Lobby",
+  retail: "Retail",
+  amenity: "Amenity",
   residential: "Residential",
   office: "Office",
   hotel: "Hotel",

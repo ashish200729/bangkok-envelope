@@ -15,6 +15,8 @@ export function outlinePolygons(outline: Outline): readonly Polygon[] {
 export const USE_RGB: Record<FloorUse, readonly [number, number, number]> = {
   parking: [128, 132, 140],
   lobby: [214, 160, 66],
+  retail: [222, 112, 78],
+  amenity: [96, 170, 92],
   residential: [74, 133, 214],
   office: [46, 155, 140],
   hotel: [150, 104, 196],
