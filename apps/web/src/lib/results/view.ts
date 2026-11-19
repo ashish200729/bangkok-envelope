@@ -13,23 +13,18 @@ type ResultsView = {
 
 type ResultsViewActions = {
   setEnvelopeKind: (kind: EnvelopeKind) => void;
-  selectDesign: (id: DesignId | null, heightM?: number) => void;
+  /** Selecting a design also shows the envelope it was fitted to. */
+  selectDesign: (id: DesignId | null, envelope?: EnvelopeKind) => void;
   setTab: (tab: PanelTab) => void;
 };
-
-export const HIGH_RISE_FROM_M = 23;
 
 export const useResultsView = create<ResultsView & ResultsViewActions>()((set) => ({
   envelopeKind: "highRise",
   selectedDesign: null,
   tab: "plot",
   setEnvelopeKind: (envelopeKind) => set({ envelopeKind }),
-  selectDesign: (selectedDesign, heightM) =>
-    set(
-      selectedDesign === null || heightM === undefined
-        ? { selectedDesign }
-        : { selectedDesign, envelopeKind: heightM < HIGH_RISE_FROM_M ? "lowRise" : "highRise" },
-    ),
+  selectDesign: (selectedDesign, envelope) =>
+    set(envelope ? { selectedDesign, envelopeKind: envelope } : { selectedDesign }),
   setTab: (tab) => set({ tab }),
 }));
 

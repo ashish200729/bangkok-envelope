@@ -18,7 +18,7 @@ const TABS: { id: PanelTab; label: string }[] = [
 export function ResultsPanel() {
   const tab = useResultsView((s) => s.tab);
   const { state, scene } = useScene();
-  const designCount = scene?.designs.designs.length ?? 0;
+  const designCount = scene?.result.designs.length ?? 0;
   const updating = state.status === "computing" && state.previous !== null;
 
   return (

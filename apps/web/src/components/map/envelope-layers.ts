@@ -65,7 +65,7 @@ type Edge = { path: Xyz[] };
 /** Contour rings drawn at least this often on gently sloping faces (the road height plane). */
 const CONTOUR_EVERY_M = 5;
 /** A ring is drawn where the footprint shrinks by more than this share: a visible step. */
-const STEP_SHARE = 0.03;
+const STEP_SHARE = 0.1;
 /** Corners turning less than this are arc segments, not edges worth a vertical line. */
 const CORNER_MIN_TURN_RAD = (20 * Math.PI) / 180;
 
@@ -159,6 +159,24 @@ const ENVELOPE_MATERIAL: typeof MATERIAL = {
  */
 const UNDER_PLOT_OUTLINE = { beforeId: "plot-sides-road" } as object;
 
+/**
+ * Depth-only pass: the same slabs, fully transparent, drawn first. The tinted pass then passes the
+ * depth test (less-equal) only on the front-most faces, so overlapping 1 m bands are tinted once
+ * instead of striping where translucent faces stack.
+ */
+function envelopeDepthLayer(slabs: Slab[]) {
+  return new SolidPolygonLayer<Slab>({
+    ...UNDER_PLOT_OUTLINE,
+    id: "envelope-depth",
+    data: slabs,
+    extruded: true,
+    getPolygon: (d) => d.polygon,
+    getElevation: (d) => d.elevation,
+    getFillColor: [0, 0, 0, 0],
+    material: false,
+  });
+}
+
 function envelopeLayer(slabs: Slab[], ghost: boolean) {
   return new SolidPolygonLayer<Slab>({
     ...UNDER_PLOT_OUTLINE,
@@ -167,7 +185,7 @@ function envelopeLayer(slabs: Slab[], ghost: boolean) {
     extruded: true,
     getPolygon: (d) => d.polygon,
     getElevation: (d) => d.elevation,
-    getFillColor: [...ENVELOPE_RGB, ghost ? 40 : 64],
+    getFillColor: [...ENVELOPE_RGB, ghost ? 40 : 84],
     material: ENVELOPE_MATERIAL,
     pickable: !ghost,
     autoHighlight: !ghost,
@@ -236,7 +254,8 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
     if (view.design) next.push(floorsLayer(slabsForDesign(view.design)));
     if (view.envelope) {
       const { envelope, kind } = view.envelope;
-      next.push(envelopeLayer(slabsForEnvelope(envelope, kind), ghost));
+      const slabs = slabsForEnvelope(envelope, kind);
+      next.push(envelopeDepthLayer(slabs), envelopeLayer(slabs, ghost));
       next.push(envelopeEdgesLayer(edgesForEnvelope(envelope), ghost));
     }
     layers = next;

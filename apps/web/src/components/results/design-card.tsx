@@ -50,7 +50,7 @@ export function DesignCard({
           type="button"
           aria-pressed={selected}
           onClick={() =>
-            useResultsView.getState().selectDesign(selected ? null : design.id, design.heightM)
+            useResultsView.getState().selectDesign(selected ? null : design.id, design.envelope)
           }
           className={cn(
             "mt-1 inline-flex h-8 w-fit items-center gap-1.5 rounded-md border px-3 font-medium text-sm transition-colors focus-visible:outline-2 focus-visible:outline-ring",

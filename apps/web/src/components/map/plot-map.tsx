@@ -17,7 +17,6 @@ import { toast } from "sonner";
 import { type SceneHover, SceneTooltip } from "@/components/results/scene-tooltip";
 import { startEngine, useEngineStore } from "@/lib/engine/store";
 import { usePlotStore } from "@/lib/plot/store";
-import { fixtureFlag } from "@/lib/results/fixtures";
 import { sceneFor } from "@/lib/results/scene";
 import { useResultsView } from "@/lib/results/view";
 import { createBuildingHider } from "./building-hider";
@@ -32,6 +31,8 @@ setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const PITCH_3D = 55;
+// Looks at the sample plot from across Soi 19; from the south a 177 m neighbour hides the envelope.
+const BEARING_3D = 120;
 const EMPTY_IMAGE = { width: 1, height: 1, data: new Uint8Array(4) };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -81,7 +82,7 @@ export default function PlotMap() {
         center: initial.draft.vertices[0]?.lngLat as [number, number] | undefined,
         zoom: 17,
         pitch: PITCH_3D,
-        bearing: -20,
+        bearing: BEARING_3D,
         maxPitch: 75,
         canvasContextAttributes: { antialias: true },
         fadeDuration: reducedMotion() ? 0 : 300,
@@ -142,14 +143,9 @@ export default function PlotMap() {
       measure.raise();
 
       const scene = createSceneLayers(map, { onHover: setHover });
-      const useFixtures = fixtureFlag();
       let shown: SceneLayersView = { envelope: null, design: null };
       const renderScene = () => {
-        const next = sceneFor(
-          useEngineStore.getState().state,
-          useResultsView.getState(),
-          useFixtures,
-        );
+        const next = sceneFor(useEngineStore.getState().state, useResultsView.getState());
         const view: SceneLayersView =
           next && store.getState().mode === "edit"
             ? { envelope: next.envelope, design: next.design }
@@ -252,7 +248,7 @@ export default function PlotMap() {
     setIs3d(next);
     map.easeTo({
       pitch: next ? PITCH_3D : 0,
-      bearing: next ? -20 : 0,
+      bearing: next ? BEARING_3D : 0,
       duration: reducedMotion() ? 0 : 600,
     });
   }

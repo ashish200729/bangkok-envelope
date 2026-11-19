@@ -20,9 +20,9 @@ import {
 } from "@envelope/engine";
 
 /**
- * Hand-made concept designs built from a real result's envelopes, for building and testing the
- * designs UI before the engine generates its own. They respect the envelope and FAR, but the
- * massing is a plain scale of each slice, not a real design. Development only.
+ * Hand-made concept designs built from a real result's envelopes, for unit tests of the designs
+ * UI helpers independent of the engine's generator. They respect the envelope and FAR, but the
+ * massing is a plain scale of each slice, not a real design. Never shown in the app.
  */
 
 const MAIN_USE = { condo: "residential", office: "office", hotel: "hotel" } as const;
@@ -224,6 +224,7 @@ function finish(
     id,
     name,
     summary,
+    envelope: highRise ? "highRise" : "lowRise",
     floors,
     heightM,
     gfaM2,
@@ -330,30 +331,4 @@ export function fixtureDesigns(result: EngineSuccess, input: EngineInput): Desig
     ),
   );
   return designs;
-}
-
-export type DesignSet = { designs: readonly Design[]; source: "engine" | "fixture" | "none" };
-
-const fixtureCache = new WeakMap<EngineSuccess, Design[]>();
-
-/** Real designs when the engine produced some; otherwise the fixtures when the dev flag is on. */
-export function designsFor(
-  result: EngineSuccess,
-  input: EngineInput,
-  useFixtures: boolean,
-): DesignSet {
-  if (result.designs.length > 0) return { designs: result.designs, source: "engine" };
-  if (!useFixtures) return { designs: [], source: "none" };
-  let designs = fixtureCache.get(result);
-  if (!designs) {
-    designs = fixtureDesigns(result, input);
-    fixtureCache.set(result, designs);
-  }
-  return { designs, source: "fixture" };
-}
-
-/** `?fixtureDesigns=1` in development shows the fixture designs until the engine has its own. */
-export function fixtureFlag(): boolean {
-  if (process.env.NODE_ENV === "production" || typeof window === "undefined") return false;
-  return new URLSearchParams(window.location.search).get("fixtureDesigns") === "1";
 }

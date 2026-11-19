@@ -1,11 +1,10 @@
 "use client";
 
 import { type Design, farLimit } from "@envelope/engine";
-import { Badge } from "@envelope/ui/components/badge";
 import { cn } from "@envelope/ui/lib/utils";
 import { formatArea, formatFar, formatInt, formatLength } from "@/lib/results/format";
 import type { Scene } from "@/lib/results/scene";
-import { HIGH_RISE_FROM_M, useResultsView } from "@/lib/results/view";
+import { useResultsView } from "@/lib/results/view";
 import { SectionTitle } from "./bits";
 import { DesignCard } from "./design-card";
 
@@ -14,40 +13,30 @@ export type DesignContext = { farMax: (design: Design) => number; keyLabel: stri
 export function designContext(scene: Scene): DesignContext {
   const { input } = scene;
   return {
-    farMax: (design) => farLimit(input.zone, input.farBonusPct, design.heightM >= HIGH_RISE_FROM_M),
+    farMax: (design) => farLimit(input.zone, input.farBonusPct, design.envelope === "highRise"),
     keyLabel:
       input.buildingType === "condo" ? "Units" : input.buildingType === "hotel" ? "Rooms" : null,
   };
 }
 
 export function DesignsTab({ scene }: { scene: Scene }) {
-  const { designs, source } = scene.designs;
+  const { designs } = scene.result;
   const selected = useResultsView((s) => s.selectedDesign);
   const context = designContext(scene);
 
   if (designs.length === 0) {
     return (
       <p className="rounded-lg border border-dashed p-4 text-muted-foreground text-sm">
-        No concept design fits this plot yet. Concept designs are generated inside the allowed space
-        as soon as the rules engine produces them.
+        No concept design fits inside the allowed space on this plot. Enlarge the plot, or check the
+        road width and the rule switches in the Rules tab.
       </p>
     );
   }
 
   return (
-    <div className="grid gap-6" data-testid="designs" data-source={source}>
+    <div className="grid gap-6" data-testid="designs">
       <section aria-label="Compare designs" className="grid gap-2">
-        <SectionTitle
-          aside={
-            source === "fixture" && (
-              <Badge variant="outline" className="text-warn">
-                Development fixture
-              </Badge>
-            )
-          }
-        >
-          Compare
-        </SectionTitle>
+        <SectionTitle>Compare</SectionTitle>
         <Comparison designs={designs} selected={selected} context={context} />
         <p className="text-muted-foreground text-xs">
           Select a design to see it on the map inside the allowed space.
@@ -89,7 +78,7 @@ function Comparison({
   ];
   return (
     <div className="overflow-x-auto rounded-lg border bg-card">
-      <table className="w-full text-sm" data-testid="design-comparison">
+      <table className="w-full text-xs sm:text-sm" data-testid="design-comparison">
         <thead>
           <tr className="border-b">
             <th scope="col" className="w-0 px-3 py-2 text-left font-normal text-muted-foreground">
@@ -107,7 +96,7 @@ function Comparison({
                 <button
                   type="button"
                   className="font-semibold hover:underline"
-                  onClick={() => useResultsView.getState().selectDesign(d.id, d.heightM)}
+                  onClick={() => useResultsView.getState().selectDesign(d.id, d.envelope)}
                 >
                   {d.name.split(" · ")[0]}
                 </button>

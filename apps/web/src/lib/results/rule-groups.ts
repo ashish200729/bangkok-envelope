@@ -29,6 +29,8 @@ const GROUP_OF: Record<RuleId, RuleGroupId> = {
   "use.size": "use",
   "use.rooms": "use",
   "parking.min": "parking",
+  "envelope.fit": "setbacks",
+  "eia.threshold": "use",
 };
 
 export type ToggleKey = keyof RuleToggles;
