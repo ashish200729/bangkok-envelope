@@ -11,7 +11,18 @@ async function openMap(page: Page) {
     { timeout: 90_000 },
   );
   await page.getByRole("button", { name: "Switch to a flat 2D view" }).click();
-  await page.waitForTimeout(900);
+  await page.waitForFunction(
+    () => {
+      const map = (
+        window as unknown as {
+          __envelopeMap: { getPitch(): number; isMoving(): boolean; areTilesLoaded(): boolean };
+        }
+      ).__envelopeMap;
+      return map.getPitch() === 0 && !map.isMoving() && map.areTilesLoaded();
+    },
+    null,
+    { timeout: 30_000 },
+  );
   const box = await page.getByTestId("plot-map").boundingBox();
   if (!box) throw new Error("map has no size");
   return async (lngLat: LngLat) => {
