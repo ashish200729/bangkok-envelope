@@ -25,12 +25,15 @@ const stubEvaluate: Evaluate = (input) =>
         version: ENGINE_VERSION,
         plotAreaM2: 5600,
         rules: [],
-        envelope: {
-          slices: [{ z0M: 0, z1M: 1, footprint: [[ring]], areaM2: 3900 }],
-          maxHeightM: 1,
-          groundAreaM2: 3900,
-          highRise: { allowed: false, checks: [roadCheck] },
+        envelopes: {
+          lowRise: {
+            slices: [{ z0M: 0, z1M: 1, footprint: [[ring]], areaM2: 3900 }],
+            maxHeightM: 1,
+            groundAreaM2: 3900,
+          },
+          highRise: null,
         },
+        highRise: { allowed: false, checks: [roadCheck], maxGfaM2: null },
         designs: [],
       }
     : {
@@ -65,7 +68,7 @@ describe("engine result contract", () => {
       }),
     ];
     const summary = results.map((r) =>
-      r.ok ? r.envelope.highRise.checks.map((c) => badgeFor(c.status)) : r.error.code,
+      r.ok ? r.highRise.checks.map((c) => badgeFor(c.status)) : r.error.code,
     );
     expect(summary).toEqual([["Fail"], "no-road-edge"]);
   });

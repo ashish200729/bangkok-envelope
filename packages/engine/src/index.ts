@@ -3,6 +3,16 @@
  * (live updates) and the server (saved projects, reports) run the same code.
  */
 
+export {
+  BAND_M,
+  buildSlices,
+  type LocalSlice,
+  MIN_SLICE_AREA_M2,
+  type RegionCache,
+  regionAt,
+  toEnvelope,
+} from "./envelope";
+export { analyseSite, ENVELOPE_CEILING_M, evaluate, type SiteAnalysis } from "./evaluate";
 export { SAMPLE_INPUT } from "./fixtures";
 export {
   closeRing,
@@ -12,6 +22,7 @@ export {
   type MultiPolygon,
   type Polygon,
 } from "./geo";
+export { assessHighRise, type RoadFrontage, roadFrontages } from "./high-rise";
 export {
   ALL_RULES_ON,
   BUILDING_TYPE_INFO,
@@ -50,9 +61,40 @@ export {
   type EngineSuccess,
   type Envelope,
   type EnvelopeSlice,
+  type Envelopes,
   type Evaluate,
   type Floor,
   type FloorUse,
+  type HighRiseAccess,
 } from "./outputs";
+export {
+  distanceToSegment,
+  type EdgeSide,
+  type LocalEdge,
+  type PlotError,
+  type PreparedPlot,
+  preparePlot,
+  signedArea,
+} from "./plot";
+export { makeProjection, type Projection, ringCentroid, type XY } from "./projection";
+export { allowedRegion, type LocalPolygon, type Region, stadium } from "./region";
 export { RULE_IDS, RULE_INFO, type RuleId, type Unit } from "./rules";
+export {
+  boundaryDistanceM,
+  farLimit,
+  LAW,
+  openSpaceMin,
+  roadPlaneDistanceM,
+  roadSetbackM,
+  type Sourced,
+  sizeCapForUse,
+  stationCounts,
+  USE_SIZE_RULES,
+  type UseSizeLimit,
+  type UseSizeRule,
+  type UseSizeTier,
+  ZONE_RULES,
+  type ZoneRules,
+} from "./rules-data";
+export { type EnvelopeKind, edgeDistances } from "./setbacks";
 export { ENGINE_VERSION } from "./version";

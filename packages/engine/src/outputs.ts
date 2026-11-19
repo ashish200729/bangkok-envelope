@@ -13,6 +13,9 @@ export type AppliedRule = {
   source: Citation;
   /** True when the rule cuts the 3D envelope (setbacks, height plane, high-rise gate). */
   affectsEnvelope: boolean;
+  /** False when the user switched the rule off with a toggle; it is still listed. */
+  enabled: boolean;
+  /** Which road or condition the line is about, e.g. the road name for per-road rules. */
   note?: string;
 };
 
@@ -39,16 +42,38 @@ export type EnvelopeSlice = {
   areaM2: number;
 };
 
+/** The space a building may fill: stacked footprints, each valid over its whole height band. */
 export type Envelope = {
-  /** Bottom to top, contiguous, no empty slices. */
+  /** Bottom to top, contiguous from 0, no empty slices. */
   slices: readonly EnvelopeSlice[];
+  /** Top of the last slice; 0 when nothing fits. Exclusive: the building must stay below it. */
   maxHeightM: number;
+  /** Area of the lowest slice; 0 when nothing fits. */
   groundAreaM2: number;
-  highRise: {
-    /** Whether the site may hold a building of 23 m or more. */
-    allowed: boolean;
-    checks: readonly Check[];
-  };
+};
+
+/**
+ * A low-rise (under 23 m) and a high-rise obey different distances at the same low heights:
+ * a high-rise keeps 6 m from every boundary even at its ground floor. So there are two envelopes.
+ */
+export type Envelopes = {
+  /** From the ground to 23 m: road setback, 2 m / 3 m to neighbours, road height plane. */
+  lowRise: Envelope;
+  /** From the ground up: 6 m clearance on every side and the road height plane. Null when not allowed. */
+  highRise: Envelope | null;
+};
+
+export type HighRiseAccess = {
+  /**
+   * Whether the site may hold a building of 23 m or more: site access (unless the high-rise gate
+   * is switched off) and room left after the 6 m clearance. False exactly when
+   * `envelopes.highRise` is null.
+   */
+  allowed: boolean;
+  /** The site's real situation, even when the gate is switched off. */
+  checks: readonly Check[];
+  /** Total floor area cap for a high-rise (30,000 m² on a 10–18 m road); null when uncapped. */
+  maxGfaM2: number | null;
 };
 
 export type FloorUse = "parking" | "lobby" | "residential" | "office" | "hotel";
@@ -106,7 +131,8 @@ export type EngineSuccess = {
   version: string;
   plotAreaM2: number;
   rules: readonly AppliedRule[];
-  envelope: Envelope;
+  envelopes: Envelopes;
+  highRise: HighRiseAccess;
   designs: readonly Design[];
 };
 

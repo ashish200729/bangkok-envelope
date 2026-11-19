@@ -11,10 +11,12 @@ export const RULE_IDS = [
   "height.roadPlane",
   "highRise.threshold",
   "highRise.road",
+  "highRise.largeRoad",
   "highRise.frontage",
   "highRise.clearance",
   "highRise.farCeiling",
   "use.size",
+  "use.rooms",
   "parking.min",
 ] as const;
 
@@ -30,9 +32,11 @@ export const RULE_INFO = {
   "height.roadPlane": { label: "Height limit from road width", unit: "m" },
   "highRise.threshold": { label: "High-rise threshold", unit: "m" },
   "highRise.road": { label: "Road width for a high-rise", unit: "m" },
+  "highRise.largeRoad": { label: "Road width for a high-rise over 30,000 m²", unit: "m" },
   "highRise.frontage": { label: "Road frontage for a high-rise", unit: "m" },
   "highRise.clearance": { label: "High-rise clearance around the building", unit: "m" },
   "highRise.farCeiling": { label: "High-rise floor area ratio ceiling", unit: "ratio" },
-  "use.size": { label: "Size allowed for this use", unit: "m2" },
+  "use.size": { label: "Operating area allowed for this use", unit: "m2" },
+  "use.rooms": { label: "Hotel rooms allowed", unit: "rooms" },
   "parking.min": { label: "Parking spaces", unit: "spaces" },
 } as const satisfies Record<RuleId, { label: string; unit: Unit }>;
