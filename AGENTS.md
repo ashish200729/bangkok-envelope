@@ -292,7 +292,7 @@ Real buildings, roads and stations for a fixed study area around Asok (`STUDY_AR
 
 ### Map (built, phase 2)
 
-The home page `/` is the tool: map on the left (top on phones), panel on the right. `/status` is the stack status page.
+The home page `/` is the tool (`components/layout/app-shell.tsx`): a top bar with three steps (Brief, Site and rules, Options; `useResultsView().step`, never blocking), the step's column on the left (420 px; below the map on phones) and the map on the right, with the options comparison under it on the Options step. `/status` is the stack status page.
 
 | Path                                             | Role                                                                                                                                                                                                                                                                  |
 | ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -324,7 +324,9 @@ Rules learned the hard way:
 - deck.gl (`MapLibreOverlay` from `@deck.gl/maplibre`, interleaved) draws the envelope and designs (`components/map/envelope-layers.ts`, decisions 40 and 52). Do not use `react-map-gl` or `@deck.gl/mapbox`. Never set `parameters.depthWriteEnabled` on a layer: it leaks GL state across MapLibre's passes. deck.gl shadow maps do not work interleaved (decision 52). Development builds expose `window.__envelopeDeck` (`layers()`, `view()` with sun, night, toggles, selected floor and callouts, `pick(x, y)`), `__sceneView`, `__resultsView` and `__asBuilt` (zustand stores).
 - OpenFreeMap building ids are not unique per building; never filter basemap buildings by id alone (decision 52).
 - The engine runs in a Web Worker behind a latest-wins scheduler (`lib/engine/*`); components read `useEngineResult()` (`idle | computing(previous) | ready | invalid`). Zod is configured jitless before any app code (`src/instrumentation-client.ts`, decision 39) so the CSP sees no eval.
-- The right column is tabs: Plot (`components/panel/**`), Rules and Designs (`components/results/**`, helpers in `lib/results/**`).
+- Steps: Brief (`components/layout/brief-step.tsx`), Site and rules (tabs Plot = `components/panel/**`, Rules = `components/results/rules-tab.tsx`), Options (`components/results/options-step.tsx`: option cards, then Shape / Rules / Customise / Cost / Return tabs). Helpers in `lib/results/**`.
+- Design studio (decisions 53–57): `lib/studio/**` (variants, undo history with gesture folding, floor-stack edits, section geometry, persistence, CSV, cost-and-return assumptions) and `components/studio/**`. Variants are `CustomDesignId`s built in the engine worker (`build-custom` request, one latest-wins lane per variant, `lib/engine/custom-builds.ts`); `startStudio()` (`lib/studio/sync.ts`) rebuilds them on every edit and every new evaluation and mirrors the built designs into `useResultsView().customDesigns`, which `sceneFor` searches, so the map draws a selected variant without knowing about the studio. `AnyDesign` (`lib/results/view.ts`) is the type for "generated or edited"; take it instead of `Design` anywhere a selected design can arrive.
+- The camera fits the plot and the height of what stands on it (`fitToPlot` in `plot-map.tsx`, measured on screen), on load, Reset view, Fit and when another design is selected.
 
 ## 4. Environment and services
 
@@ -398,5 +400,6 @@ Then:
 - Done: site data backend (phase 6): OSM snapshot of Asok in PostGIS (5,766 buildings, 1,691 roads, 7 stations), `/api/site/*` routes. Not yet consumed by the web app.
 - Done: backend hardening after a security review: `/api/site/buildings` and `buildingsOnPlot` removed, statement timeouts, API-wide rate limits, production health summary, security headers and CSP (decisions 34–38).
 - Done: engine designs and checklists (phase 5, engine side): three concept designs per plot with floor schedules and checklists; `evaluate` stays under ~20 ms on a 10-corner plot.
-- Done: editable designs, engine side: `Design.spec`, `buildCustomDesign` (same cut, measure and checks as the generated designs), retail and amenity floors, mixed-use parking and size caps, studio helpers (decisions 42–47). The studio UI is not built.
+- Done: editable designs, engine side: `Design.spec`, `buildCustomDesign` (same cut, measure and checks as the generated designs), retail and amenity floors, mixed-use parking and size caps, studio helpers (decisions 42–47).
+- Done: concept-study layout and the design studio (decisions 53–57).
 - Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.
