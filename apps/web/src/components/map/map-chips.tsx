@@ -63,7 +63,7 @@ export function MapLegend() {
     <ul
       aria-label="Floor uses"
       data-testid="map-legend"
-      className="pointer-events-none absolute bottom-9 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-x-3 gap-y-1 rounded-lg border bg-background/90 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur"
+      className="pointer-events-none absolute right-3 bottom-9 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-x-3 gap-y-1 rounded-lg border bg-background/90 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur"
     >
       {uses.map((use) => (
         <li key={use} className="flex items-center gap-1.5 capitalize">

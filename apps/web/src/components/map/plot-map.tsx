@@ -1,6 +1,6 @@
 "use client";
 
-import type { LngLat } from "@envelope/engine";
+import { ENVELOPE_CEILING_M, type LngLat } from "@envelope/engine";
 import { Button } from "@envelope/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@envelope/ui/components/tooltip";
 import { Box, Focus, Square } from "lucide-react";
@@ -59,17 +59,71 @@ type MapStatus =
 /** After this long without a map style, say so: the tile service is external. */
 const SLOW_MAP_MS = 12_000;
 
-function fitToPlot(map: MapLibreMap, vertices: readonly LngLat[], animate: boolean) {
-  if (vertices.length === 0) return;
+/** How tall the shown scene is: the selected design, or the envelope (capped when unlimited). */
+function sceneHeightM(): number {
+  const scene = sceneFor(useEngineStore.getState().state, useResultsView.getState());
+  if (!scene) return 0;
+  const designM = scene.design?.heightM ?? 0;
+  const envelopeM = scene.envelope.envelope.maxHeightM;
+  const unlimited = envelopeM >= ENVELOPE_CEILING_M;
+  return Math.max(designM, unlimited ? Math.max(designM * 1.2, 60) : envelopeM);
+}
+
+const FIT_PADDING = { top: 120, bottom: 120, left: 120, right: 120 };
+const FLAT_PADDING = { top: 80, bottom: 80, left: 80, right: 80 };
+const EARTH_CIRCUMFERENCE_M = 40_075_016.7;
+
+/**
+ * Fits the plot and everything standing on it. At a pitch a point h metres up is drawn about
+ * h × sin(pitch) metres' worth of pixels above its foot, so after fitting the plot the camera is
+ * measured on screen, then zoomed out and moved until the top of the envelope or building also
+ * fits inside the padding.
+ */
+function fitToPlot(
+  map: MapLibreMap,
+  vertices: readonly LngLat[],
+  animate: boolean,
+  heightM = sceneHeightM(),
+  angle: { pitch: number; bearing: number } = { pitch: map.getPitch(), bearing: map.getBearing() },
+) {
+  const first = vertices[0];
+  if (!first) return;
   const bounds = new LngLatBounds();
   for (const [lng, lat] of vertices) bounds.extend([lng, lat]);
-  map.fitBounds(bounds, {
-    padding: { top: 120, bottom: 120, left: 120, right: 120 },
-    maxZoom: 18,
+  const { pitch, bearing } = angle;
+  // Seen from above the plot is all there is, so it may come closer.
+  const padding = pitch > 0 ? FIT_PADDING : FLAT_PADDING;
+  const camera = map.cameraForBounds(bounds, { padding, maxZoom: 18, pitch, bearing });
+  if (!camera?.center || camera.zoom === undefined) return;
+  const start = {
+    center: map.getCenter(),
+    zoom: map.getZoom(),
     pitch: map.getPitch(),
     bearing: map.getBearing(),
-    duration: animate && !reducedMotion() ? 700 : 0,
-  });
+  };
+  map.jumpTo({ center: camera.center, zoom: camera.zoom, pitch, bearing });
+
+  if (heightM > 0 && pitch > 0) {
+    const { clientWidth: width, clientHeight: height } = map.getContainer();
+    const lift = Math.sin((pitch * Math.PI) / 180) * heightM;
+    const cosLat = Math.cos((first[1] * Math.PI) / 180);
+    const wantMid = (FIT_PADDING.top + height - FIT_PADDING.bottom) / 2;
+    const room = Math.max(50, height - FIT_PADDING.top - FIT_PADDING.bottom);
+    for (let pass = 0; pass < 3; pass++) {
+      const ys = vertices.map(([lng, lat]) => map.project([lng, lat]).y);
+      const pxPerM = (512 * 2 ** map.getZoom()) / (EARTH_CIRCUMFERENCE_M * cosLat);
+      const top = Math.min(...ys) - lift * pxPerM;
+      const bottom = Math.max(...ys);
+      const factor = Math.min(1, room / Math.max(1, bottom - top));
+      const centre = map.unproject([width / 2, (top + bottom) / 2 + (height / 2 - wantMid)]);
+      map.jumpTo({ center: centre, zoom: map.getZoom() + Math.log2(factor) });
+    }
+  }
+
+  const target = { center: map.getCenter(), zoom: Math.min(18, map.getZoom()), pitch, bearing };
+  map.jumpTo(start);
+  if (animate && !reducedMotion()) map.easeTo({ ...target, duration: 700 });
+  else map.jumpTo(target);
 }
 
 export default function PlotMap() {
@@ -174,8 +228,24 @@ export default function PlotMap() {
         onSelectFloor: (level) => useResultsView.getState().setSelectedFloor(level),
       });
       let shown: SceneLayersView = EMPTY_SCENE;
+      // Refit once the first result arrives (its height is unknown before) and when another
+      // design is chosen; edits to the same design leave the camera alone.
+      let framed: { design: string | null } | null = null;
       const renderScene = () => {
         const results = useResultsView.getState();
+        const ready = sceneFor(useEngineStore.getState().state, results) !== null;
+        if (
+          ready &&
+          store.getState().mode === "edit" &&
+          framed?.design !== results.selectedDesign
+        ) {
+          framed = { design: results.selectedDesign };
+          fitToPlot(
+            map,
+            store.getState().draft.vertices.map((v) => v.lngLat),
+            true,
+          );
+        }
         const sceneView = useSceneView.getState();
         const next = sceneFor(useEngineStore.getState().state, results);
         const view: SceneLayersView =
@@ -319,11 +389,14 @@ export default function PlotMap() {
     if (!map) return;
     const next = !is3d;
     setIs3d(next);
-    map.easeTo({
-      pitch: next ? PITCH_3D : 0,
-      bearing: next ? BEARING_3D : 0,
-      duration: reducedMotion() ? 0 : 600,
-    });
+    // A flat view needs no room for height, so it frames the plot closer.
+    fitToPlot(
+      map,
+      usePlotStore.getState().draft.vertices.map((v) => v.lngLat),
+      true,
+      sceneHeightM(),
+      { pitch: next ? PITCH_3D : 0, bearing: next ? BEARING_3D : 0 },
+    );
   }
 
   function resetView() {
