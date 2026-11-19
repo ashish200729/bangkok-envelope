@@ -110,7 +110,30 @@ Browser                                   Next.js server (Vercel)
 
 Internal packages export TypeScript source directly (no build step). `apps/web/next.config.ts` lists them in `transpilePackages`; add a new package there.
 
-### Planned engine design (not built yet)
+### Engine contract (built, `packages/engine`)
+
+The shared types every workstream builds against. Change them only with care: they cross the Web Worker, the API and the database. Everything is plain JSON (no classes, Maps or Dates).
+
+| File          | Contents                                                                                                                                                                                                                            |
+| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                              |
+| `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`) |
+| `law.ts`      | `LawId`, `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                                                              |
+| `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                     |
+| `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelope`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate`                                               |
+| `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                      |
+| `version.ts`  | `ENGINE_VERSION`, stamped on every result                                                                                                                                                                                           |
+
+Rules of the contract:
+
+- **Plot is an open ring.** `edges[i]` describes the side from `vertices[i]` to `vertices[i + 1]` (the last edge closes to vertex 0); `edges.length === vertices.length`. Winding may be either; the engine normalises it. Outputs use closed GeoJSON rings.
+- **Edge identity lives in the UI.** Terra Draw has no stable vertex ids, so the UI store keeps its own ids and rebuilds `edges` on every change; the engine only sees indices.
+- **Validate at boundaries** with `engineInputSchema.safeParse` (worker messages, API bodies, saved projects, URL state). Inside the engine, trust the types.
+- **Units:** metres, square metres, ratios as fractions (OSR 4% is `0.04`), FAR bonus in percent (0–20). Round only for display.
+- **Road width is the legal right-of-way** (เขตทาง). For a road edge, the road's property line is the plot edge; its centreline is `widthM / 2` outward and its far side `widthM` outward.
+- **Errors are values, not exceptions.** Geometry the engine cannot use returns `{ ok: false, error: { code } }`.
+
+### Planned engine algorithm (not built yet)
 
 1. Project the plot to local metres (equirectangular around the plot; error < 0.01% at plot scale).
 2. Label each plot edge as road-facing (with its road width) or neighbour boundary.
@@ -196,4 +219,5 @@ Then:
 ## 8. Current status
 
 - Done: monorepo starter (Next.js 16, Hono API, Neon + PostGIS, Drizzle migrations, Better Auth guests, Blueprint theme, Biome, Vitest, Playwright, CI). The home page is a temporary system status page.
-- Next: rules engine with tests, then the map component, designs and checklist, site data backend, polish, deploy to Vercel.
+- Done: engine contract (phase 1): input schemas, result types, law registry, rule ids, sample input, 20 tests.
+- Next, in parallel: the map component (phase 2) and the engine core (phase 3), both against the contract. Then designs and checklist, site data backend, polish, deploy to Vercel.

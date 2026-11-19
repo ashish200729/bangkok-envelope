@@ -10,6 +10,9 @@
     "typecheck": "tsc",
     "test": "vitest run"
   },
+  "dependencies": {
+    "zod": "catalog:"
+  },
   "devDependencies": {
     "@envelope/tsconfig": "workspace:*",
     "typescript": "catalog:",
