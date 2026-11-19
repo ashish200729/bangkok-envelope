@@ -89,3 +89,7 @@ Bands are 1 m tall up to a computational ceiling of 300 m (no law in scope caps 
 - Frontage is the total length of plot sides facing one road, because the map may split one frontage into several sides. A frontage within 1 cm of 12 m counts as 12 m, so a side drawn at exactly 12 m does not fail on map rounding.
 - The rules list repeats `setback.road` and `height.roadPlane` once per road (with the road named in `note`), and lists both neighbour distances (2 m and 3 m). Each line carries `enabled`, false when its toggle is off.
 - Use-size caps (offices by operating area, hotels by rooms) are checked against the widest road the plot faces; a station counts when `stationDistanceM` ≤ 500.
+
+## 22. Live measurements while drawing and editing
+
+A developer checks a plot against the title deed and the site, so every side shows its length while it is drawn and edited, the side under the pointer also shows its compass bearing, each corner its interior angle, and a HUD shows perimeter and area (m² and rai/ngan/wah). Labels are native MapLibre symbols on a GeoJSON source updated once per animation frame, not React markers, so they cost nothing between frames and take part in MapLibre's collision handling. Labels are horizontal pills placed beside the outline (lengths outside, angles inside), not along the line, because short sides cannot fit text along them. Corners under 15° are flagged: they are almost always a misplaced click.
