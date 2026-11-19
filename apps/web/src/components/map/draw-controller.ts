@@ -17,6 +17,13 @@ import { type DrawProgress, NO_PROGRESS } from "./measure-layers";
 /** Smallest plot accepted while drawing; anything below cannot hold a building. */
 const MIN_PLOT_AREA_M2 = 50;
 
+/**
+ * A click this close to the first corner closes the plot. Terra Draw's default of 40 px swallowed
+ * any corner placed within about 23 m of the first one at the opening zoom, so a narrow plot
+ * closed as a triangle.
+ */
+const CLOSE_PLOT_PX = 16;
+
 type Handlers = {
   /**
    * A corner or the whole plot moved, or a corner was inserted or deleted. `draggedCorner` is
@@ -71,6 +78,7 @@ export function createDrawController(map: MapLibreMap, handlers: Handlers): Draw
     adapter: new TerraDrawMapLibreGLAdapter({ map }),
     modes: [
       new TerraDrawPolygonMode({
+        pointerDistance: CLOSE_PLOT_PX,
         validation: (feature, { updateType }) => {
           if (updateType !== "finish") return { valid: true };
           const shape = checkShape(feature);

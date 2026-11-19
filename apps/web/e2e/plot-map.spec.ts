@@ -153,6 +153,24 @@ test("right-clicking a corner removes it", async ({ page }) => {
   await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
 });
 
+test("a corner placed near the first one does not close a narrow plot early", async ({ page }) => {
+  const project = await openMap(page);
+  await page.getByRole("button", { name: "Draw a new plot" }).click();
+  const first = await project([100.5599, 13.7383]);
+  // A 6 m wide plot: its last corner lands about 20 px from the first at this zoom.
+  const last = await project([100.5599, 13.738355]);
+  expect(Math.hypot(last.x - first.x, last.y - first.y)).toBeLessThan(40);
+  const corners = [
+    first,
+    await project([100.5604, 13.7383]),
+    await project([100.5604, 13.738355]),
+    last,
+  ];
+  for (const pt of corners) await page.mouse.click(pt.x, pt.y);
+  await page.mouse.click(first.x, first.y);
+  await expect(sides(page)).toHaveCount(4);
+});
+
 /** Text of the labels MapLibre is drawing on one of our symbol layers. */
 function labels(page: Page, layer: string) {
   return page.evaluate(
