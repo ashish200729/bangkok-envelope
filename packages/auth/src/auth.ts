@@ -15,6 +15,17 @@ export const auth = betterAuth({
   session: {
     cookieCache: { enabled: true, maxAge: 5 * 60 },
   },
+  // Defence in depth behind the API's own limiter (packages/api/src/app.ts). Memory storage is per
+  // serverless instance; see docs/decisions.md.
+  rateLimit: {
+    enabled: true,
+    storage: "memory",
+    window: 60,
+    max: 100,
+    customRules: {
+      "/sign-in/anonymous": { window: 600, max: 10 },
+    },
+  },
   telemetry: { enabled: false },
 });
 

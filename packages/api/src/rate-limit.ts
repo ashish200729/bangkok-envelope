@@ -1,5 +1,5 @@
 import type { Context, MiddlewareHandler } from "hono";
-import type { ApiError } from "../app";
+import type { ApiError } from "./app";
 
 export type RateLimitOptions = {
   /** Requests allowed per client within `windowMs`. */
@@ -59,7 +59,7 @@ export function rateLimit({
         {
           error: {
             code: "rate_limited",
-            message: `Too many site requests. Try again in ${retryAfterS} s.`,
+            message: `Too many requests. Try again in ${retryAfterS} s.`,
             requestId: c.get("requestId"),
           },
         },

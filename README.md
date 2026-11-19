@@ -58,14 +58,13 @@ pnpm dev                               # http://localhost:3100
 
 ## API
 
-| Route                                  | Description                                                                                                              |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
-| `GET /api/health`                      | API, database and PostGIS status. 503 when the database is unreachable                                                   |
-| `GET /api/me`                          | Current session as the server sees it                                                                                    |
-| `/api/auth/*`                          | Better Auth endpoints                                                                                                    |
-| `GET /api/site/area`                   | Study area polygon, OSM attribution, snapshot date and row counts                                                        |
-| `GET /api/site/buildings?bbox=w,s,e,n` | Buildings (GeoJSON, heights in metres) in a box of at most 1.2 km² inside the study area                                 |
-| `POST /api/site/plot-context`          | `{ vertices: [lng, lat][] }` → nearest station, the road each side faces (with a suggested width), buildings on the plot |
+| Route                         | Description                                                                                          |
+| ----------------------------- | ---------------------------------------------------------------------------------------------------- |
+| `GET /api/health`             | API and database status (versions only outside production). 503 when the database is unreachable     |
+| `GET /api/me`                 | Current session as the server sees it                                                                |
+| `/api/auth/*`                 | Better Auth endpoints                                                                                |
+| `GET /api/site/area`          | Study area polygon, OSM attribution, snapshot date and row counts                                    |
+| `POST /api/site/plot-context` | `{ vertices: [lng, lat][] }` → nearest station and the road each side faces (with a suggested width) |
 
 Site data is © OpenStreetMap contributors, available under the [Open Database License](https://www.openstreetmap.org/copyright). The app never calls OpenStreetMap at runtime; it serves a snapshot committed in `packages/db/seed/`.
 

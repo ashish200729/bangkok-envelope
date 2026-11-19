@@ -224,13 +224,30 @@ Real buildings, roads and stations for a fixed study area around Asok (`STUDY_AR
 | --------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `packages/db/src/schema/site.ts`  | `site_buildings` (MultiPolygon, `height_m`, `base_m`, `height_source`), `site_roads` (MultiLineString, `class`, `width_m`, `width_source`), `site_stations` (Point), `site_snapshots` (source, dates, counts). GiST indexes. Migration `0002_site_data` |
 | `packages/db/src/site.ts`         | DB-free barrel, import as `@envelope/db/site`: `STUDY_AREA`, bbox helpers, normalisers, snapshot format, result types                                                                                                                                   |
-| `packages/db/src/site-queries.ts` | `getSiteBuildings`, `getPlotContext` (nearest station, road per side, buildings on plot), `getSnapshotInfo`. Parameterised `sql` only                                                                                                                   |
+| `packages/db/src/site-queries.ts` | `getPlotContext` (nearest station, road per side), `getSnapshotInfo`. Parameterised `sql` only, each call in one transaction under a 3 s `statement_timeout` (`statement-timeout.ts`)                                                                   |
 | `packages/db/seed/`               | `asok-osm.json` snapshot (ODbL), `fetch-osm.ts` (`pnpm db:seed:fetch`, Overpass, rarely needed), `load-site.ts` (`pnpm db:seed`, idempotent upsert)                                                                                                     |
-| `packages/api/src/routes/site.ts` | `GET /api/site/area`, `GET /api/site/buildings?bbox=`, `POST /api/site/plot-context`; rate limit (`site-rate-limit.ts`) and 32 KB body limit                                                                                                            |
+| `packages/api/src/routes/site.ts` | `GET /api/site/area`, `POST /api/site/plot-context` (plot bounding box at most 0.25 km²); 32 KB body limit                                                                                                                                              |
 
 - Road widths from OSM are suggestions (`widthSource` `osm-tag` / `osm-estimate`, same values as the engine's `Road.widthSource`); the user's value wins.
+- `site_buildings` is loaded but has no API route yet (the map draws buildings from the basemap's vector tiles). Add one only with a bounded query, a statement timeout and a test.
 - `pnpm --filter @envelope/db test:db` runs the SQL integration tests against `DATABASE_URL` (skipped in plain `pnpm test`).
-- Error codes: `invalid_request`, `outside_study_area`, `bbox_too_large`, `plot_too_large`, `payload_too_large` (413), `rate_limited` (429, `Retry-After`).
+- Error codes: `invalid_request`, `plot_too_large`, `payload_too_large` (413), `rate_limited` (429, `Retry-After`), `not_found`, `internal`.
+
+### API routes and security (decisions 34–38)
+
+| Route                         | Notes                                                                                                              |
+| ----------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| `GET /api/health`             | Production: `{ status, database: { ok } }` only. Elsewhere also versions, timings and the driver error. `no-store` |
+| `GET /api/me`                 | Session summary                                                                                                    |
+| `GET, POST /api/auth/*`       | Better Auth                                                                                                        |
+| `GET /api/site/area`          | Study area, attribution, snapshot info; cached only once the snapshot exists, else `no-store`                      |
+| `POST /api/site/plot-context` | Nearest station and road per side                                                                                  |
+
+- The Next route (`app/api/[[...route]]/route.ts`) exports only `GET` and `POST`; other methods get 405 from Next.
+- `createApp(deps)` rate-limits **every** `/api/*` request (120 a minute per client IP) and `POST /api/auth/sign-in/anonymous` again (10 per 10 minutes) before Better Auth runs; Better Auth's own limiter has the same anonymous rule. Both are in-memory, per serverless instance (decision 36). Limits are injectable (`rateLimits`) for tests.
+- `exposeDetails` (from `NODE_ENV` in `packages/api/src/index.ts`) is the one switch for detail in responses; handlers do not read `process.env`.
+- Every request-path query runs through `withStatementTimeout` (`@envelope/db`); a new query must too.
+- `apps/web/next.config.ts` sets CSP and security headers on every route. A new external host (tiles, fonts, analytics) must be added to the CSP, or the browser blocks it. `/status` is a dev-only page (404 in production).
 
 ### Planned backend routes (not built yet)
 
@@ -337,5 +354,6 @@ Then:
 - Done: engine contract (phase 1): input schemas, result types, law registry, rule ids, sample input, 20 tests.
 - Done: map (phase 2): 3D map of the real site, draw and edit any plot shape, side roles and road widths, zone and building type inputs, on-plot buildings hidden, live engine input. 16 web unit tests, 7 map e2e tests.
 - Done: site data backend (phase 6): OSM snapshot of Asok in PostGIS (5,766 buildings, 1,691 roads, 7 stations), `/api/site/*` routes. Not yet consumed by the web app.
+- Done: backend hardening after a security review: `/api/site/buildings` and `buildingsOnPlot` removed, statement timeouts, API-wide rate limits, production health summary, security headers and CSP (decisions 34–38).
 - Done: engine designs and checklists (phase 5, engine side): three concept designs per plot with floor schedules and checklists; `evaluate` stays under ~20 ms on a 10-corner plot.
 - Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.

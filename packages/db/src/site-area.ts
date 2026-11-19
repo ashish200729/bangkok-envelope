@@ -34,15 +34,6 @@ export function bboxContainsPoint([w, s, e, n]: Bbox, lng: number, lat: number):
   return lng >= w && lng <= e && lat >= s && lat <= n;
 }
 
-/** The overlap of two boxes, or null when they do not overlap. */
-export function intersectBbox(a: Bbox, b: Bbox): Bbox | null {
-  const w = Math.max(a[0], b[0]);
-  const s = Math.max(a[1], b[1]);
-  const e = Math.min(a[2], b[2]);
-  const n = Math.min(a[3], b[3]);
-  return w < e && s < n ? [w, s, e, n] : null;
-}
-
 /** A closed GeoJSON polygon ring for a box, counter-clockwise. */
 export function bboxRing([w, s, e, n]: Bbox): [number, number][] {
   return [

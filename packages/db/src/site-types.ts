@@ -1,22 +1,5 @@
 import type { Bbox } from "./site-area";
-import type { HeightSource, RoadWidthSource } from "./site-normalize";
-
-type Position = [number, number];
-
-export type BuildingFeature = {
-  type: "Feature";
-  id: string;
-  geometry: { type: "MultiPolygon"; coordinates: Position[][][] };
-  properties: {
-    id: string;
-    heightM: number;
-    baseM: number;
-    heightSource: HeightSource;
-    name: string | null;
-  };
-};
-
-export type BuildingsResult = { features: BuildingFeature[]; truncated: boolean };
+import type { RoadWidthSource } from "./site-normalize";
 
 export type NearestStation = {
   name: string;
@@ -41,8 +24,6 @@ export type PlotContext = {
   nearestStation: NearestStation | null;
   /** One entry per plot side, side i running from vertex i to vertex i + 1. */
   sides: { index: number; road: SideRoad | null }[];
-  /** OSM ids of buildings standing mostly on the plot. */
-  buildingsOnPlot: string[];
 };
 
 export type SnapshotInfo = {

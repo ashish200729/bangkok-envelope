@@ -1,5 +1,5 @@
 import { auth } from "@envelope/auth";
-import { checkDatabase, db, getPlotContext, getSiteBuildings, getSnapshotInfo } from "@envelope/db";
+import { checkDatabase, db, getPlotContext, getSnapshotInfo } from "@envelope/db";
 import { createApp } from "./app";
 
 export type { ApiError, AppType } from "./app";
@@ -17,8 +17,8 @@ export const app = createApp({
     };
   },
   site: {
-    getBuildings: (bbox, limit) => getSiteBuildings(db, bbox, limit),
     getPlotContext: (vertices) => getPlotContext(db, vertices),
     getSnapshotInfo: () => getSnapshotInfo(db),
   },
+  exposeDetails: process.env.NODE_ENV !== "production",
 });
