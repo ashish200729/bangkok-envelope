@@ -222,5 +222,5 @@ If the worker cannot start (an old browser or a stricter embedder), the runner e
 - **One FAR limit per comparison.** Every design's FAR check uses the zone's FAR with the bonus (the MR 33 ceiling of 10 is above the largest bonus, 9.6), so the comparison names that limit once instead of per cell.
 - **Roads per named street.** OSM ways with the same name and rounded width share one road when sides are marked from site data, so one street's frontage is counted once for the 12 m rule. Unnamed ways stay separate.
 - **No site data is not an error.** `plot_too_large` from the API is shown like a plot outside the study area: a plain notice, no Retry.
-- **Closing a drawn plot** needs a click within 16 px of the first corner (Terra Draw's default of 40 px closed narrow plots early). Enter still finishes.
+- **Closing a drawn plot** needs a click within 16 px of the first corner, 28 px on touch screens (Terra Draw's default of 40 px closed narrow plots early). Enter still finishes.
 - **The API's own errors use documented codes.** A body that is not JSON is `invalid_request`; a body not sent as `application/json` is 415 `unsupported_media_type` rather than a misleading "vertices: expected array".

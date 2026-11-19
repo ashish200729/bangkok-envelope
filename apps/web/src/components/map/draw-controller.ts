@@ -20,9 +20,12 @@ const MIN_PLOT_AREA_M2 = 50;
 /**
  * A click this close to the first corner closes the plot. Terra Draw's default of 40 px swallowed
  * any corner placed within about 23 m of the first one at the opening zoom, so a narrow plot
- * closed as a triangle.
+ * closed as a triangle. A finger needs more room than a mouse.
  */
-const CLOSE_PLOT_PX = 16;
+const CLOSE_PLOT_PX = { fine: 16, coarse: 28 } as const;
+
+const pointerKind = (): keyof typeof CLOSE_PLOT_PX =>
+  window.matchMedia("(pointer: coarse)").matches ? "coarse" : "fine";
 
 type Handlers = {
   /**
@@ -78,7 +81,7 @@ export function createDrawController(map: MapLibreMap, handlers: Handlers): Draw
     adapter: new TerraDrawMapLibreGLAdapter({ map }),
     modes: [
       new TerraDrawPolygonMode({
-        pointerDistance: CLOSE_PLOT_PX,
+        pointerDistance: CLOSE_PLOT_PX[pointerKind()],
         validation: (feature, { updateType }) => {
           if (updateType !== "finish") return { valid: true };
           const shape = checkShape(feature);
