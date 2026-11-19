@@ -183,3 +183,19 @@ function reverseCorners(corners: readonly Corner[]): Corner[] {
 function failure(code: EngineErrorCode, message: string): PreparePlotResult {
   return { ok: false, error: { code, message } };
 }
+
+/**
+ * The shape rules alone (distinct corners, no crossing or touching sides, real area), without
+ * road access. The map runs this while the plot is drawn and edited, so it never accepts an
+ * outline the engine would reject.
+ */
+export function checkPlotShape(
+  vertices: readonly LngLat[],
+): { ok: true } | { ok: false; error: PlotError } {
+  const result = preparePlot(
+    { vertices: [...vertices], edges: vertices.map(() => ({ kind: "boundary" })) },
+    [],
+  );
+  if (result.ok || result.error.code === "no-road-edge") return { ok: true };
+  return { ok: false, error: result.error };
+}

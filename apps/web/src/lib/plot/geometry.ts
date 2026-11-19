@@ -76,28 +76,3 @@ export function areaM2(vertices: readonly LngLat[]): number {
 export function midpoint(a: LngLat, b: LngLat): LngLat {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 }
-
-/** True when two non-adjacent sides of the ring cross. */
-export function selfIntersects(vertices: readonly LngLat[]): boolean {
-  const n = vertices.length;
-  const at = (i: number) => vertices[i % n] as LngLat;
-  for (let i = 0; i < n; i++) {
-    for (let j = i + 1; j < n; j++) {
-      if (j === i + 1 || (i === 0 && j === n - 1)) continue;
-      if (segmentsCross(at(i), at(i + 1), at(j), at(j + 1))) return true;
-    }
-  }
-  return false;
-}
-
-function orient(a: LngLat, b: LngLat, c: LngLat): number {
-  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
-}
-
-function segmentsCross(a: LngLat, b: LngLat, c: LngLat, d: LngLat): boolean {
-  const d1 = orient(c, d, a);
-  const d2 = orient(c, d, b);
-  const d3 = orient(a, b, c);
-  const d4 = orient(a, b, d);
-  return d1 * d2 < 0 && d3 * d4 < 0;
-}

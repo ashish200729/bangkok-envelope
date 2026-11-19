@@ -91,10 +91,20 @@ test("a new plot can be drawn, then a road side marked", async ({ page }) => {
     const pt = await project(c);
     await page.mouse.click(pt.x, pt.y);
   }
+  const siteData = page.waitForResponse((r) => r.url().includes("/api/site/plot-context"));
   const first = await project(corners[0] as LngLat);
   await page.mouse.click(first.x, first.y);
-
   await expect(sides(page)).toHaveCount(4);
+
+  // This plot lies along Soi Sukhumvit 19, so site data may mark a side automatically; clear
+  // every side to test marking by hand.
+  await siteData;
+  for (let i = 1; i <= 4; i++) {
+    const side = page.getByRole("combobox", { name: `Side ${i} faces` });
+    if ((await side.textContent())?.trim() === "Neighbour") continue;
+    await side.click();
+    await page.getByRole("option", { name: "Neighbour" }).click();
+  }
   await expect(status(page)).toHaveText(/Mark at least one side that faces a public road/);
 
   await page.getByRole("combobox", { name: "Side 1 faces" }).click();
@@ -118,7 +128,7 @@ test("a self-crossing outline is refused", async ({ page }) => {
   }
   const first = await project(bowTie[0] as LngLat);
   await page.mouse.click(first.x, first.y);
-  await expect(page.getByText("The outline crosses itself", { exact: false })).toBeVisible();
+  await expect(page.getByText("sides cross or touch each other", { exact: false })).toBeVisible();
   await expect(status(page)).toHaveText(/Finish drawing the plot/);
 });
 

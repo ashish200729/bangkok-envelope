@@ -1,4 +1,4 @@
-import { closeRing, type LngLat } from "@envelope/engine";
+import { checkPlotShape, closeRing, type LngLat } from "@envelope/engine";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import {
   type GeoJSONStoreFeatures,
@@ -7,7 +7,6 @@ import {
   TerraDrawPolygonMode,
   TerraDrawSelectMode,
   ValidateMinAreaSquareMeters,
-  ValidateNotSelfIntersecting,
 } from "terra-draw";
 import { TerraDrawMapLibreGLAdapter } from "terra-draw-maplibre-gl-adapter";
 import { openRing, sameLngLat } from "@/lib/plot/draft";
@@ -56,6 +55,16 @@ function polygonRing(feature: GeoJSONStoreFeatures | undefined): LngLat[] | null
   return ring ? ring.map(([lng, lat]) => [lng, lat] as LngLat) : null;
 }
 
+/** The engine's own shape rules, so the map never accepts an outline the engine would reject. */
+function checkShape(
+  feature: GeoJSONStoreFeatures,
+): { valid: true } | { valid: false; reason: string } {
+  const ring = polygonRing(feature);
+  if (!ring) return { valid: true };
+  const result = checkPlotShape(openRing(ring));
+  return result.ok ? { valid: true } : { valid: false, reason: result.error.message };
+}
+
 /** Owns Terra Draw: the editable plot outline on the map. Call after the map style loads. */
 export function createDrawController(map: MapLibreMap, handlers: Handlers): DrawController {
   const draw = new TerraDraw({
@@ -64,12 +73,10 @@ export function createDrawController(map: MapLibreMap, handlers: Handlers): Draw
       new TerraDrawPolygonMode({
         validation: (feature, { updateType }) => {
           if (updateType !== "finish") return { valid: true };
-          const notCrossing = ValidateNotSelfIntersecting(feature);
-          if (!notCrossing.valid) {
-            handlers.onRejected(
-              "The outline crosses itself. Place the corners in order around the plot.",
-            );
-            return notCrossing;
+          const shape = checkShape(feature);
+          if (!shape.valid) {
+            handlers.onRejected(shape.reason);
+            return shape;
           }
           const bigEnough = ValidateMinAreaSquareMeters(feature, MIN_PLOT_AREA_M2);
           if (!bigEnough.valid) {
@@ -95,6 +102,7 @@ export function createDrawController(map: MapLibreMap, handlers: Handlers): Draw
             feature: {
               draggable: true,
               selfIntersectable: false,
+              validation: (feature) => checkShape(feature),
               coordinates: { draggable: true, midpoints: { draggable: true }, deletable: true },
             },
           },

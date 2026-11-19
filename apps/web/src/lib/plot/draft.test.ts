@@ -3,7 +3,7 @@ import { SAMPLE_INPUT } from "@envelope/engine";
 import { describe, expect, it } from "vitest";
 import { draftFromRing, type PlotDraft, reconcileVertices, sideRole, type VertexId } from "./draft";
 import { toEngineInput } from "./engine-input";
-import { areaM2, selfIntersects, sideLengthsM } from "./geometry";
+import { areaM2, sideLengthsM } from "./geometry";
 
 function ids() {
   let n = 0;
@@ -97,21 +97,6 @@ describe("geometry", () => {
     expect(lengths[0]).toBeCloseTo(108.1, 0);
     expect(lengths[1]).toBeCloseTo(111.2, 0);
     expect(areaM2(square)).toBeCloseTo(108.1 * 111.2, -2);
-  });
-
-  it("detects a bow-tie but not a concave plot", () => {
-    const bowTie: LngLat[] = [square[0], square[2], square[1], square[3]] as LngLat[];
-    const lShape: LngLat[] = [
-      [0, 0],
-      [2, 0],
-      [2, 1],
-      [1, 1],
-      [1, 2],
-      [0, 2],
-    ];
-    expect(selfIntersects(bowTie)).toBe(true);
-    expect(selfIntersects(lShape)).toBe(false);
-    expect(selfIntersects(square)).toBe(false);
   });
 });
 

@@ -83,6 +83,7 @@ export {
   type HighRiseAccess,
 } from "./outputs";
 export {
+  checkPlotShape,
   distanceToSegment,
   type EdgeSide,
   type LocalEdge,
