@@ -1,3 +1,4 @@
+import { formatNumber } from "./format";
 import { type RoadFrontage, roadLabel } from "./high-rise";
 import { BUILDING_TYPE_INFO, type EngineInput, ZONES } from "./inputs";
 import type { Citation } from "./law";
@@ -24,7 +25,7 @@ function rule(id: RuleId, line: Line): AppliedRule {
   };
 }
 
-const n = (value: number) => (Math.round(value * 100) / 100).toLocaleString("en-US");
+const n = (value: number) => formatNumber(value, 2);
 
 function roadSetbackNote(f: RoadFrontage): string {
   const w = f.road.widthM;

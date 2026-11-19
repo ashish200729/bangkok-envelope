@@ -1,4 +1,4 @@
-export type LawId = "bkk-plan-2556" | "mr-33" | "mr-7" | "bma-2544";
+export type LawId = "bkk-plan-2556" | "mr-33" | "mr-7" | "bma-2544" | "eia";
 
 export type Law = {
   id: LawId;
@@ -37,6 +37,15 @@ export const LAWS = {
     titleEn: "Bangkok Building Control Ordinance, B.E. 2544 (2001)",
     titleTh: "ข้อบัญญัติกรุงเทพมหานคร เรื่อง ควบคุมอาคาร พ.ศ. ๒๕๔๔",
     url: "https://lawplayer.com/th/act/pythainlp_913eb25903dfb0d1",
+  },
+  eia: {
+    id: "eia",
+    short: "EIA notification",
+    titleEn:
+      "Ministry of Natural Resources and Environment notification on the projects that need an environmental impact assessment report",
+    titleTh:
+      "ประกาศกระทรวงทรัพยากรธรรมชาติและสิ่งแวดล้อม เรื่อง กำหนดประเภทและขนาดของโครงการหรือกิจการซึ่งต้องจัดทำรายงานการวิเคราะห์ผลกระทบสิ่งแวดล้อม",
+    url: "https://www.onep.go.th/eia/",
   },
 } as const satisfies Record<LawId, Law>;
 

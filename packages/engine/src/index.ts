@@ -3,6 +3,21 @@
  * (live updates) and the server (saved projects, reports) run the same code.
  */
 
+export { buildDesigns, limitsFor } from "./designs";
+export {
+  type Assumption,
+  type Confidence,
+  DESIGN_ASSUMPTIONS,
+  floorHeightM,
+  keyCount,
+} from "./designs/assumptions";
+export { EIA_RULES } from "./designs/checks";
+export {
+  isLargeBuilding,
+  PARKING_RULES,
+  type ParkingNeed,
+  requiredSpaces,
+} from "./designs/parking";
 export {
   BAND_M,
   buildSlices,
