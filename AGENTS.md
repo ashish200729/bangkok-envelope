@@ -231,7 +231,7 @@ Real buildings, roads and stations for a fixed study area around Asok (`STUDY_AR
 - Road widths from OSM are suggestions (`widthSource` `osm-tag` / `osm-estimate`, same values as the engine's `Road.widthSource`); the user's value wins.
 - `site_buildings` is loaded but has no API route yet (the map draws buildings from the basemap's vector tiles). Add one only with a bounded query, a statement timeout and a test.
 - `pnpm --filter @envelope/db test:db` runs the SQL integration tests against `DATABASE_URL` (skipped in plain `pnpm test`).
-- Error codes: `invalid_request`, `plot_too_large`, `payload_too_large` (413), `rate_limited` (429, `Retry-After`), `not_found`, `internal`.
+- Error codes: `invalid_request` (also a body that is not JSON), `plot_too_large`, `unsupported_media_type` (415, body not sent as `application/json`), `payload_too_large` (413), `rate_limited` (429, `Retry-After`), `not_found`, `internal`.
 
 ### API routes and security (decisions 34–38)
 
