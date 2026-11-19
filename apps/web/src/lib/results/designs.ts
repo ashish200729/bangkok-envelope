@@ -11,16 +11,29 @@ export function outlinePolygons(outline: Outline): readonly Polygon[] {
   return isMultiPolygon(outline) ? outline : [outline as Polygon];
 }
 
-/** RGB per floor use, shared by the 3D slabs and the panel legend. */
-export const USE_RGB: Record<FloorUse, readonly [number, number, number]> = {
-  parking: [128, 132, 140],
-  lobby: [214, 160, 66],
-  retail: [222, 112, 78],
-  amenity: [96, 170, 92],
-  residential: [74, 133, 214],
-  office: [46, 155, 140],
-  hotel: [150, 104, 196],
+/**
+ * Massing colour per floor use, shared by the 3D model, the map legend and the panel legend.
+ * Muted, matte tones that read against light or dark neighbours: shops warm sand, car park light
+ * grey, offices soft blue-grey.
+ */
+export const USE_HEX: Record<FloorUse, string> = {
+  parking: "#c3c6c9",
+  lobby: "#cfb995",
+  retail: "#dcc08f",
+  amenity: "#a9c19d",
+  residential: "#e6bc9f",
+  office: "#9db2c6",
+  hotel: "#bba6c6",
 };
+
+function hexToRgb(hex: string): readonly [number, number, number] {
+  const n = Number.parseInt(hex.slice(1), 16);
+  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+}
+
+export const USE_RGB = Object.fromEntries(
+  Object.entries(USE_HEX).map(([use, hex]) => [use, hexToRgb(hex)]),
+) as Record<FloorUse, readonly [number, number, number]>;
 
 export const floorUseColor = (use: FloorUse) => `rgb(${USE_RGB[use].join(" ")})`;
 

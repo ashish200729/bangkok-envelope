@@ -8,23 +8,32 @@ type ResultsView = {
   /** Which envelope the user asked for; high-rise falls back to low-rise when not allowed. */
   envelopeKind: EnvelopeKind;
   selectedDesign: DesignId | null;
+  /** The floor (its `level`) picked on the map or in a panel; cleared with the design. */
+  selectedFloor: number | null;
   tab: PanelTab;
 };
 
 type ResultsViewActions = {
   setEnvelopeKind: (kind: EnvelopeKind) => void;
-  /** Selecting a design also shows the envelope it was fitted to. */
+  /** Selecting a design also shows the envelope it was fitted to, and clears the floor. */
   selectDesign: (id: DesignId | null, envelope?: EnvelopeKind) => void;
+  setSelectedFloor: (level: number | null) => void;
   setTab: (tab: PanelTab) => void;
 };
 
 export const useResultsView = create<ResultsView & ResultsViewActions>()((set) => ({
   envelopeKind: "highRise",
   selectedDesign: null,
+  selectedFloor: null,
   tab: "plot",
   setEnvelopeKind: (envelopeKind) => set({ envelopeKind }),
   selectDesign: (selectedDesign, envelope) =>
-    set(envelope ? { selectedDesign, envelopeKind: envelope } : { selectedDesign }),
+    set(
+      envelope
+        ? { selectedDesign, selectedFloor: null, envelopeKind: envelope }
+        : { selectedDesign, selectedFloor: null },
+    ),
+  setSelectedFloor: (selectedFloor) => set({ selectedFloor }),
   setTab: (tab) => set({ tab }),
 }));
 
