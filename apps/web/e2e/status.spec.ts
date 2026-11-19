@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 
 test("status page shows every layer connected", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/status");
   await expect(page.getByRole("heading", { name: "Bangkok Plot Envelope" })).toBeVisible();
   await expect(page.getByText("Reachable")).toBeVisible();
   await expect(page.getByText("Connected")).toBeVisible();
@@ -9,7 +9,7 @@ test("status page shows every layer connected", async ({ page }) => {
 });
 
 test("a visitor can start and end a guest session", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/status");
   await page.getByRole("button", { name: "Continue as guest" }).click();
   await expect(page.getByText("Signed in")).toBeVisible();
   await expect(page.getByText("Guest", { exact: true })).toBeVisible();

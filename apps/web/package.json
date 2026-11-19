@@ -8,24 +8,35 @@
     "build": "next build",
     "start": "next start --port 3100",
     "typecheck": "next typegen && tsc",
-    "e2e": "playwright test"
+    "e2e": "playwright test",
+    "test": "vitest run"
   },
   "dependencies": {
+    "@deck.gl/core": "catalog:",
+    "@deck.gl/layers": "catalog:",
+    "@deck.gl/maplibre": "catalog:",
     "@envelope/api": "workspace:*",
     "@envelope/auth": "workspace:*",
     "@envelope/db": "workspace:*",
     "@envelope/engine": "workspace:*",
     "@envelope/ui": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
+    "@turf/area": "catalog:",
+    "@turf/boolean-intersects": "catalog:",
+    "@turf/helpers": "catalog:",
     "better-auth": "catalog:",
     "hono": "catalog:",
     "lucide-react": "catalog:",
+    "maplibre-gl": "catalog:",
     "next": "catalog:",
     "next-themes": "catalog:",
     "react": "catalog:",
     "react-dom": "catalog:",
     "sonner": "catalog:",
-    "zod": "catalog:"
+    "terra-draw": "catalog:",
+    "terra-draw-maplibre-gl-adapter": "catalog:",
+    "zod": "catalog:",
+    "zustand": "catalog:"
   },
   "devDependencies": {
     "@envelope/tsconfig": "workspace:*",
@@ -35,6 +46,7 @@
     "@types/react": "catalog:",
     "@types/react-dom": "catalog:",
     "tailwindcss": "catalog:",
-    "typescript": "catalog:"
+    "typescript": "catalog:",
+    "vitest": "catalog:"
   }
 }

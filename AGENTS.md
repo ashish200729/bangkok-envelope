@@ -148,9 +148,32 @@ Required tests: hand-checked rectangle (40 × 50 m on a 12 m road), concave and 
 
 `GET /api/site?bbox=` (buildings, roads, stations; PostGIS cache, OSM on miss, zone area pre-seeded so the demo never depends on Overpass), `GET /api/zone?lat=&lng=`, `GET /api/stations/nearest`, `POST/GET /api/projects`, `GET /p/[shareId]`, `GET /api/projects/:id/report`.
 
-### Planned map stack (not installed yet)
+### Map (built, phase 2)
 
-MapLibre GL JS 6 (ESM-only: call `setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString())` before creating the map, in a client component), OpenFreeMap Liberty style (has `building-3d`), Terra Draw + `terra-draw-maplibre-gl-adapter` for drawing, deck.gl 9.4 `MapLibreOverlay` from `@deck.gl/maplibre` in interleaved mode for the envelope and designs. Do not use `react-map-gl` or `@deck.gl/mapbox`. `docs/prototypes/map-test.html` is a working single-file sketch of this (on MapLibre 5 UMD).
+The home page `/` is the tool: map on the left (top on phones), panel on the right. `/status` is the stack status page.
+
+| Path                                             | Role                                                                                                                                                                                                                                                                  |
+| ------------------------------------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `apps/web/src/lib/plot/draft.ts`                 | `PlotDraft`: vertices with stable `VertexId`s and side roles keyed by the side's starting vertex. `reconcileVertices` maps Terra Draw's coordinate lists onto it (drag keeps ids; insert splits a side and both halves keep its role; delete merges and keeps a road) |
+| `apps/web/src/lib/plot/store.ts`                 | Zustand store: draft, roads, settings (zone, building type, station distance, bonus, toggles), map mode (`edit`/`draw`), hovered/selected side, `geometryRevision` (bump to push geometry into the map)                                                               |
+| `apps/web/src/lib/plot/engine-input.ts`          | `toEngineInput(draft, roads, settings)`: builds and validates the `EngineInput` with `engineInputSchema`                                                                                                                                                              |
+| `apps/web/src/lib/plot/geometry.ts`, `format.ts` | Side lengths, geodesic area, self-intersection; m² and Thai rai/ngan/wah formatting                                                                                                                                                                                   |
+| `apps/web/src/components/map/plot-map.tsx`       | Creates the MapLibre map once (client only, loaded with `next/dynamic` via `plot-map-loader.tsx`), wires the controller, layers and store, fit and 2D/3D buttons, WebGL 2 fallback message                                                                            |
+| `apps/web/src/components/map/draw-controller.ts` | Owns Terra Draw: polygon mode (validated on finish only: not self-crossing, ≥ 50 m²), select mode (drag corners, drag midpoints to insert, right-click to delete, never self-crossing)                                                                                |
+| `apps/web/src/components/map/side-layers.ts`     | Road sides and labels as **native MapLibre layers** (flat lines), hover and click linked to the panel                                                                                                                                                                 |
+| `apps/web/src/components/map/building-hider.ts`  | Hides basemap buildings that intersect the plot by filtering `building` / `building-3d` on feature ids; re-runs as tiles load                                                                                                                                         |
+| `apps/web/src/components/panel/plot-panel.tsx`   | Plot size, sides list (role per side, new road), road widths, zone, building type, station distance, readiness status                                                                                                                                                 |
+
+Rules learned the hard way:
+
+- MapLibre's CSS forces `position: relative` on the map container. Give the container `h-full w-full` inside a sized parent; never `absolute inset-0` on it.
+- Call `setWorkerUrl(new URL('maplibre-gl/dist/maplibre-gl-worker.mjs', import.meta.url).toString())` before creating the map. Turbopack emits the worker as a hashed asset.
+- Terra Draw 1.39's `change` events carry no `origin`. The controller mutes its own changes with a flag while loading a plot.
+- Validate Terra Draw polygons on `finish` only. Validating on `commit` rejects every click, because an unfinished polygon contains repeated points.
+- Terra Draw wants mutable coordinate arrays; the engine's are readonly. Convert with `.map(([lng, lat]) => [lng, lat])`.
+- MapLibre and Terra Draw cannot parse OKLCH; map colours live as hex in `components/map/colors.ts`.
+- Development builds expose `window.__envelopeMap` (MapLibre map) and `window.__envelopeDraw` (controller, with `debug()`) for Playwright. They are not set in production.
+- deck.gl (`MapLibreOverlay` from `@deck.gl/maplibre`, interleaved) is installed and proven in a spike; it is reserved for the 3D envelope and designs (phase 4). Do not use `react-map-gl` or `@deck.gl/mapbox`.
 
 ## 4. Environment and services
 
@@ -196,7 +219,7 @@ Several agents may work at once. To avoid collisions:
 | --------------------------------- | -------------------------------------------------------------------------------- | ------------------- |
 | Engine: rules, geometry, envelope | `packages/engine/**`                                                             | none                |
 | Engine: designs and checklist     | `packages/engine/src/designs*`, `checks*`                                        | envelope types      |
-| Map and 3D                        | `apps/web/src/components/map/**`                                                 | engine output types |
+| Map and 3D                        | `apps/web/src/components/map/**`, `apps/web/src/lib/plot/**`                     | engine output types |
 | Inputs and results UI             | `apps/web/src/components/panel/**`, `apps/web/src/app/page.tsx`                  | engine types, store |
 | Site data backend                 | `packages/api/src/routes/site*`, `packages/db/src/schema/site*`, `scripts/seed*` | one migration       |
 | Projects, sharing, PDF            | `packages/api/src/routes/projects*`, `packages/db/src/schema/projects*`          | engine, auth        |
@@ -220,4 +243,5 @@ Then:
 
 - Done: monorepo starter (Next.js 16, Hono API, Neon + PostGIS, Drizzle migrations, Better Auth guests, Blueprint theme, Biome, Vitest, Playwright, CI). The home page is a temporary system status page.
 - Done: engine contract (phase 1): input schemas, result types, law registry, rule ids, sample input, 20 tests.
-- Next, in parallel: the map component (phase 2) and the engine core (phase 3), both against the contract. Then designs and checklist, site data backend, polish, deploy to Vercel.
+- Done: map (phase 2): 3D map of the real site, draw and edit any plot shape, side roles and road widths, zone and building type inputs, on-plot buildings hidden, live engine input. 16 web unit tests, 7 map e2e tests.
+- Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, site data backend, polish, deploy to Vercel.

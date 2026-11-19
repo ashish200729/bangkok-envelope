@@ -1,0 +1,58 @@
+import { closeRing, type LngLat } from "@envelope/engine";
+import { area } from "@turf/area";
+import { polygon } from "@turf/helpers";
+
+const EARTH_RADIUS_M = 6_371_008.8;
+const RAD = Math.PI / 180;
+
+/** Great-circle distance in metres. */
+export function distanceM(a: LngLat, b: LngLat): number {
+  const dLat = (b[1] - a[1]) * RAD;
+  const dLng = (b[0] - a[0]) * RAD;
+  const h =
+    Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * RAD) * Math.cos(b[1] * RAD) * Math.sin(dLng / 2) ** 2;
+  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
+}
+
+/** Length of each side; side i runs from vertex i to vertex i + 1. */
+export function sideLengthsM(vertices: readonly LngLat[]): number[] {
+  return vertices.map((v, i) => {
+    const next = vertices[(i + 1) % vertices.length];
+    return next ? distanceM(v, next) : 0;
+  });
+}
+
+/** Geodesic area in square metres; 0 for fewer than three vertices. */
+export function areaM2(vertices: readonly LngLat[]): number {
+  if (vertices.length < 3) return 0;
+  return area(polygon([closeRing(vertices).map(([lng, lat]) => [lng, lat])]));
+}
+
+export function midpoint(a: LngLat, b: LngLat): LngLat {
+  return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
+}
+
+/** True when two non-adjacent sides of the ring cross. */
+export function selfIntersects(vertices: readonly LngLat[]): boolean {
+  const n = vertices.length;
+  const at = (i: number) => vertices[i % n] as LngLat;
+  for (let i = 0; i < n; i++) {
+    for (let j = i + 1; j < n; j++) {
+      if (j === i + 1 || (i === 0 && j === n - 1)) continue;
+      if (segmentsCross(at(i), at(i + 1), at(j), at(j + 1))) return true;
+    }
+  }
+  return false;
+}
+
+function orient(a: LngLat, b: LngLat, c: LngLat): number {
+  return (b[0] - a[0]) * (c[1] - a[1]) - (b[1] - a[1]) * (c[0] - a[0]);
+}
+
+function segmentsCross(a: LngLat, b: LngLat, c: LngLat, d: LngLat): boolean {
+  const d1 = orient(c, d, a);
+  const d2 = orient(c, d, b);
+  const d3 = orient(a, b, c);
+  const d4 = orient(a, b, d);
+  return d1 * d2 < 0 && d3 * d4 < 0;
+}
