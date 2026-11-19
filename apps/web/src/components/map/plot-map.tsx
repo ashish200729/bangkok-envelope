@@ -280,7 +280,12 @@ export default function PlotMap() {
 
   return (
     <div className="relative h-full w-full bg-muted">
-      <div ref={container} className="h-full w-full" data-testid="plot-map" />
+      <div
+        ref={container}
+        // The map's canvas carries an inline `outline: none`, so the focus ring needs !important.
+        className="h-full w-full [&_canvas:focus-visible]:outline-2! [&_canvas:focus-visible]:outline-solid! [&_canvas:focus-visible]:outline-ring! [&_canvas:focus-visible]:-outline-offset-2!"
+        data-testid="plot-map"
+      />
 
       {status.state === "ready" && (
         <div className="absolute top-3 left-3 flex gap-2">

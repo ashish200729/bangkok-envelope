@@ -1,12 +1,17 @@
 "use client";
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@envelope/ui/components/tabs";
+import { cn } from "@envelope/ui/lib/utils";
 import { PlotPanel } from "@/components/panel/plot-panel";
 import { useScene } from "@/lib/results/use-scene";
 import { type PanelTab, useResultsView } from "@/lib/results/view";
 import { DesignsTab } from "./designs-tab";
 import { EngineGuidance } from "./engine-guidance";
 import { RulesTab } from "./rules-tab";
+
+/** Tab panels take focus (Radix gives them tabIndex 0), so they need a visible focus ring. */
+const PANEL =
+  "data-[state=inactive]:hidden focus-visible:outline-2 focus-visible:outline-solid focus-visible:outline-ring focus-visible:-outline-offset-2";
 
 const TABS: { id: PanelTab; label: string }[] = [
   { id: "plot", label: "Plot" },
@@ -49,13 +54,13 @@ export function ResultsPanel() {
           {updating ? "Updating results" : ""}
         </span>
       </div>
-      <TabsContent value="plot" forceMount className="data-[state=inactive]:hidden">
+      <TabsContent value="plot" forceMount className={PANEL}>
         <PlotPanel />
       </TabsContent>
-      <TabsContent value="rules" forceMount className="p-5 data-[state=inactive]:hidden">
+      <TabsContent value="rules" forceMount className={cn(PANEL, "p-5")}>
         {scene ? <RulesTab scene={scene} /> : <EngineGuidance state={state} />}
       </TabsContent>
-      <TabsContent value="designs" forceMount className="p-5 data-[state=inactive]:hidden">
+      <TabsContent value="designs" forceMount className={cn(PANEL, "p-5")}>
         {scene ? <DesignsTab scene={scene} /> : <EngineGuidance state={state} />}
       </TabsContent>
     </Tabs>

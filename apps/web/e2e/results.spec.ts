@@ -221,6 +221,21 @@ test("the floor area bonus can be typed freely and is limited to 0–20%", async
   await expect(page.getByTestId("rule-far.bonus")).toContainText("+1.2×");
 });
 
+test("keyboard focus is visible on the tab panels and the map", async ({ page }) => {
+  await openTool(page);
+  await page.getByRole("tab", { name: "Plot" }).focus();
+  await page.keyboard.press("Tab");
+  const panel = page.getByRole("tabpanel", { name: "Plot" });
+  await expect(panel).toBeFocused();
+  expect(await panel.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+
+  await page.getByRole("button", { name: "Change theme" }).focus();
+  await page.keyboard.press("Tab");
+  const map = page.getByTestId("plot-map").locator("canvas");
+  await expect(map).toBeFocused();
+  expect(await map.evaluate((el) => getComputedStyle(el).outlineStyle)).not.toBe("none");
+});
+
 for (const viewport of [
   { width: 1440, height: 900 },
   { width: 390, height: 844 },
