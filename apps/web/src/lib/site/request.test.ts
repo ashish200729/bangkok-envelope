@@ -34,9 +34,15 @@ describe("reduceSiteRequest", () => {
   });
 
   it("reports plots outside the study area and failures without old data", () => {
-    const outside = run({ type: "loaded", context }, { type: "start" }, { type: "outside" });
-    expect(outside).toEqual({ status: "outside-area" });
+    const outside = run(
+      { type: "loaded", context },
+      { type: "start" },
+      { type: "no-data", reason: "outside-area" },
+    );
+    expect(outside).toEqual({ status: "no-data", reason: "outside-area" });
     expect(currentContext(outside)).toBeNull();
+    const tooLarge = run({ type: "start" }, { type: "no-data", reason: "too-large" });
+    expect(tooLarge).toEqual({ status: "no-data", reason: "too-large" });
     const failed = run({ type: "loaded", context }, { type: "failed", message: "Nope" });
     expect(failed).toEqual({ status: "error", message: "Nope" });
     expect(currentContext(failed)).toBeNull();

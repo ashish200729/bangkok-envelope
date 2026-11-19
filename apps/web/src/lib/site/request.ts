@@ -8,18 +8,21 @@ export type SiteContext = {
   nearestStation: NearestStation | null;
 };
 
+/** Why a plot gets no site data, though the request worked: retrying would not help. */
+export type NoSiteData = "outside-area" | "too-large";
+
 export type SiteRequest =
   | { status: "idle" }
   /** `last` keeps the previous result on screen while the next one loads. */
   | { status: "loading"; last: SiteContext | null }
   | { status: "ready"; context: SiteContext }
-  | { status: "outside-area" }
+  | { status: "no-data"; reason: NoSiteData }
   | { status: "error"; message: string };
 
 export type SiteRequestEvent =
   | { type: "start" }
   | { type: "loaded"; context: SiteContext }
-  | { type: "outside" }
+  | { type: "no-data"; reason: NoSiteData }
   | { type: "failed"; message: string };
 
 export const IDLE: SiteRequest = { status: "idle" };
@@ -30,8 +33,8 @@ export function reduceSiteRequest(state: SiteRequest, event: SiteRequestEvent): 
       return { status: "loading", last: currentContext(state) };
     case "loaded":
       return { status: "ready", context: event.context };
-    case "outside":
-      return { status: "outside-area" };
+    case "no-data":
+      return { status: "no-data", reason: event.reason };
     case "failed":
       return { status: "error", message: event.message };
   }

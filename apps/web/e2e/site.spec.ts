@@ -137,6 +137,29 @@ test("a plot outside the study area says to mark roads by hand", async ({ page }
   await expect(page.getByTestId("input-status")).toHaveText(/Mark at least one side/);
 });
 
+test("a plot too large for site data says so, without an error or a Retry", async ({ page }) => {
+  await openMap(page);
+  await page.evaluate(() =>
+    (window as unknown as { __envelopeMap: TestMap }).__envelopeMap.jumpTo({
+      center: [100.555, 13.7355],
+      zoom: 15,
+    }),
+  );
+  await settled(page);
+  await drawPlot(page, [
+    [100.552, 13.733],
+    [100.558, 13.733],
+    [100.558, 13.738],
+    [100.552, 13.738],
+  ]);
+  const notice = page.getByTestId("site-status");
+  await expect(notice).toHaveText(
+    "Roads and stations are looked up only for plots within about 500 m. Mark roads and the station distance yourself, or draw a smaller plot.",
+  );
+  await expect(notice.getByRole("button", { name: "Retry" })).toHaveCount(0);
+  await expect(station(page)).toHaveValue("");
+});
+
 test("a failed site request leaves the plot usable and can be retried", async ({ page }) => {
   await page.route("**/api/site/plot-context", (route) =>
     route.fulfill({ status: 500, body: "{}" }),

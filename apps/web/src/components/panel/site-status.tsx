@@ -2,23 +2,28 @@
 
 import { Button } from "@envelope/ui/components/button";
 import { CircleAlert, Info, RotateCcw } from "lucide-react";
+import type { NoSiteData } from "@/lib/site/request";
 import { useSiteStore } from "@/lib/site/store";
 import { useStudyArea } from "@/lib/site/use-suggestions";
 
-export const OUTSIDE_AREA_NOTICE =
-  "Site data covers Asok–Sukhumvit (about 3 × 2.7 km). Outside it, mark roads and the station distance yourself.";
+export const NO_SITE_DATA_NOTICE: Record<NoSiteData, string> = {
+  "outside-area":
+    "Site data covers Asok–Sukhumvit (about 3 × 2.7 km). Outside it, mark roads and the station distance yourself.",
+  "too-large":
+    "Roads and stations are looked up only for plots within about 500 m. Mark roads and the station distance yourself, or draw a smaller plot.",
+};
 
-/** Outside-area and error notices for site data. Silent while things work. */
+/** Notices for plots without site data, and for errors. Silent while things work. */
 export function SiteStatus() {
   const request = useSiteStore((s) => s.request);
-  if (request.status === "outside-area") {
+  if (request.status === "no-data") {
     return (
       <p
         className="flex items-start gap-2 rounded-md border bg-muted/50 px-3 py-2 text-sm"
         data-testid="site-status"
       >
         <Info className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
-        <span>{OUTSIDE_AREA_NOTICE}</span>
+        <span>{NO_SITE_DATA_NOTICE[request.reason]}</span>
       </p>
     );
   }

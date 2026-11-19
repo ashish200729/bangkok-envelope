@@ -28,8 +28,8 @@ export function receivePlotContext(result: PlotContextResult, sideIds: readonly 
     case "failed":
       site.dispatch({ type: "failed", message: result.message });
       return;
-    case "outside":
-      site.dispatch({ type: "outside" });
+    case "no-data":
+      site.dispatch({ type: "no-data", reason: result.reason });
       site.spendAutoMark();
       if (site.station === "detected") plot.setStationDistance(null);
       return;
