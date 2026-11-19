@@ -30,7 +30,7 @@ import { downloadText, floorScheduleCsv, scheduleFileName } from "@/lib/studio/c
 import { canRedo, canUndo } from "@/lib/studio/history";
 import { useStudio } from "@/lib/studio/store";
 import type { Variant } from "@/lib/studio/variant";
-import { OptionBadge } from "../results/option-card";
+import { SchemeBadge } from "../results/bits";
 
 export function downloadSchedule(design: AnyDesign) {
   downloadText(
@@ -114,7 +114,7 @@ export function VariantHeader({
 
   return (
     <div className="flex items-center gap-2" data-testid="variant-header">
-      <OptionBadge badge={variant.badge} custom />
+      <SchemeBadge badge={variant.badge} custom />
       <Input
         aria-label="Variant name"
         value={draft ?? name}

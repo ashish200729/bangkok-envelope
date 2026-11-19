@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronRight } from "lucide-react";
+import { ChevronDown } from "lucide-react";
 import { floorUseColor, scheduleAreasM2, sumFloorAreas } from "@/lib/results/designs";
 import { FLOOR_USE_LABEL, floorNumber, formatArea, formatLength } from "@/lib/results/format";
 import type { AnyDesign } from "@/lib/results/view";
@@ -11,15 +11,18 @@ export function FloorSchedule({ design }: { design: AnyDesign }) {
   const areas = scheduleAreasM2(design);
   const topDown = design.floors.map((floor, i) => ({ floor, areaM2: areas[i] ?? 0 })).reverse();
   return (
-    <details className="group rounded-lg border bg-card" data-testid="floor-schedule">
-      <summary className="flex cursor-pointer list-none items-center gap-2 px-3 py-2 font-medium text-sm [&::-webkit-details-marker]:hidden">
-        <ChevronRight className="size-4 transition-transform group-open:rotate-90" />
+    <details className="group border-t" data-testid="floor-schedule">
+      <summary className="flex cursor-pointer list-none items-center gap-2 py-3 font-medium text-sm focus-visible:outline-2 focus-visible:outline-ring [&::-webkit-details-marker]:hidden">
         Floor schedule
-        <span className="ml-auto font-normal text-muted-foreground text-xs">
+        <span className="font-normal text-muted-foreground text-xs">
           {design.floors.length} floors · {formatArea(total)}
         </span>
+        <ChevronDown
+          aria-hidden
+          className="ml-auto size-4 text-muted-foreground transition-transform group-open:rotate-180"
+        />
       </summary>
-      <div className="max-h-80 overflow-y-auto border-t">
+      <div className="mb-4 max-h-80 overflow-y-auto rounded-lg border">
         <table className="w-full text-sm" data-testid={`schedule-${design.id}`}>
           <thead className="sticky top-0 bg-card text-muted-foreground text-xs">
             <tr className="border-b">

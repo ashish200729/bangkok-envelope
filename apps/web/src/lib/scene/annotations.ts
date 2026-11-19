@@ -6,9 +6,8 @@ import {
   type XY,
 } from "@envelope/engine";
 import { Clipper, FillRule, type PathsD } from "clipper2-ts";
-import type { AnyDesign as Design } from "@/lib/results/view";
 import { ccw, distanceToRing, openRing, pointInRing, signedAreaXY } from "./geometry";
-import type { FlatPolygon, Massing, Xyz } from "./massing";
+import type { FlatPolygon, Xyz } from "./massing";
 import { SCENE_COLORS } from "./materials";
 
 export type Callout = {
@@ -27,17 +26,6 @@ export function formatMetres(value: number): string {
   const whole = Math.round(value);
   if (Math.abs(value - whole) < 0.05) return `${whole} m`;
   return `${value.toFixed(1)} m`;
-}
-
-export function heightCallout(design: Design, massing: Massing): Callout | null {
-  if (!massing.top) return null;
-  const storeys = design.floors.length;
-  return {
-    id: "height",
-    kind: "height",
-    position: massing.top,
-    text: `${Math.round(design.heightM)} m · ${storeys} ${storeys === 1 ? "storey" : "storeys"}`,
-  };
 }
 
 export type SiteAnnotations = {

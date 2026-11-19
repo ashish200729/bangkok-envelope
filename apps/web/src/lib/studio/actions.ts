@@ -6,8 +6,7 @@ import { GENERATED_BADGE, makeVariant } from "./variant";
 function show(id: CustomDesignId, envelope: AnyDesign["envelope"]) {
   const view = useResultsView.getState();
   view.selectDesign(id, envelope);
-  view.setOptionTab("customise");
-  view.setStep("options");
+  view.setEditing(true);
 }
 
 /** "Customise": an editable copy of any option, seeded with its spec, selected and opened. */

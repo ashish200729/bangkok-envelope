@@ -160,8 +160,8 @@ export function feasibilityOf(
 /** "Covers land" or "Short of land by ฿1.2 bn". */
 export function verdictText(f: Feasibility, format: (thb: number) => string): string {
   return f.landVerdict === "covers land"
-    ? "Covers land"
-    : `Short of land by ${format(Math.abs(f.landGapTHB))}`;
+    ? "Pays for the land"
+    : `${format(Math.abs(f.landGapTHB))} below the land price`;
 }
 
 /** The first web address in a source text, for a link. */

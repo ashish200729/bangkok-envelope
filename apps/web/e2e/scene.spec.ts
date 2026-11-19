@@ -7,7 +7,6 @@ type DeckView = {
   selectedFloor: number | null;
   night: boolean;
   sun: { timestampMs: number; direction: [number, number, number] | null };
-  callouts: { kind: string; text: string }[];
 };
 type TestMap = {
   isStyleLoaded(): boolean;
@@ -68,7 +67,7 @@ async function pageXY(page: Page, lngLat: LngLat) {
   return { x: (box?.x ?? 0) + pt.x, y: (box?.y ?? 0) + pt.y };
 }
 
-test("a design is drawn as massing with floor lines, a roof plant room, trees and callouts", async ({
+test("a design is drawn as massing with floor lines, a roof plant room and trees", async ({
   page,
 }) => {
   await openWithDesign(page);
@@ -89,11 +88,6 @@ test("a design is drawn as massing with floor lines, a roof plant room, trees an
   expect(byId.has("design-windows")).toBe(false);
   // The envelope stays as a ghost around the design.
   expect(byId.get("envelope")).toBeGreaterThan(0);
-
-  const callouts = page.getByTestId("scene-callouts");
-  await expect(callouts.locator('[data-callout="height"]')).toHaveText(/^\d+ m · \d+ storeys$/);
-  await expect(callouts.locator('[data-callout="setback"]')).toHaveText("6 m setback");
-  await expect(page.getByTestId("map-legend")).toContainText("parking");
 });
 
 test("the sun presets move the light, and night lights the windows", async ({ page }) => {
@@ -133,18 +127,19 @@ test("clicking a floor selects it and clicking empty map clears it", async ({ pa
   await expect.poll(() => layerIds(page)).not.toContain("floor-selected");
 });
 
-test("the map chips switch the setback, the height limit and the building there today", async ({
+test("the layers menu switches the setbacks, the envelope and the building there today", async ({
   page,
 }) => {
   await openWithDesign(page);
+  await page.getByRole("button", { name: "Map layers" }).click();
+  const menu = page.getByTestId("map-layers");
   await expect.poll(() => layerIds(page)).toContain("site-setback");
-  await page.getByRole("button", { name: "Setback" }).click();
+  await menu.getByRole("switch", { name: /Setbacks/ }).click();
   await expect.poll(() => layerIds(page)).not.toContain("site-setback");
-  await expect(page.locator('[data-callout="setback"]')).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Height limit" }).click();
+  await menu.getByRole("switch", { name: /Allowed envelope/ }).click();
   await expect.poll(() => layerIds(page)).not.toContain("envelope");
-  await page.getByRole("button", { name: "Height limit" }).click();
+  await menu.getByRole("switch", { name: /Allowed envelope/ }).click();
   await expect.poll(() => layerIds(page)).toContain("envelope");
 
   await expect
@@ -160,7 +155,7 @@ test("the map chips switch the setback, the height limit and the building there 
       ),
     );
   expect(await asBuilt()).toBe("none");
-  await page.getByRole("button", { name: "As built" }).click();
+  await menu.getByRole("switch", { name: /Existing building/ }).click();
   await expect.poll(asBuilt).toBe("visible");
 });
 

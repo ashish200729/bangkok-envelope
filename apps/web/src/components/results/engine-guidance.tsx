@@ -13,7 +13,7 @@ import { useResultsView } from "@/lib/results/view";
 const GUIDANCE: Record<EngineErrorCode, { title: string; fix: string }> = {
   "no-road-edge": {
     title: "Mark the side that faces a road",
-    fix: "Thai law requires every plot to reach a public road, and the road's width sets the height limit. In Site and rules, set at least one side to face a road and enter its width.",
+    fix: "Thai law requires every plot to reach a public road, and the road's width sets the height limit. In Plot, set at least one side to face a road and enter its width.",
   },
   "self-intersecting": {
     title: "The outline crosses itself",
@@ -32,7 +32,7 @@ const GUIDANCE: Record<EngineErrorCode, { title: string; fix: string }> = {
 /** What to show instead of results: a loading state or plain guidance. Null when results exist. */
 export function EngineGuidance({ state }: { state: EngineState }) {
   const mode = usePlotStore((s) => s.mode);
-  const goToSite = useResultsView((s) => s.goToSite);
+  const openPlot = () => useResultsView.getState().setSection("plot");
   const computed = latestComputed(state);
 
   if (mode === "draw") {
@@ -45,13 +45,13 @@ export function EngineGuidance({ state }: { state: EngineState }) {
   }
   if (state.status === "invalid") {
     return (
-      <Note title="This plot cannot be checked yet" text="Fix these in Site and rules:">
+      <Note title="This plot cannot be checked yet" text="Fix these in Plot:">
         <ul className="list-disc pl-5 text-muted-foreground">
           {state.problems.map((problem) => (
             <li key={problem}>{problem}</li>
           ))}
         </ul>
-        <PlotButton onClick={() => goToSite("plot")} />
+        <PlotButton onClick={openPlot} />
       </Note>
     );
   }
@@ -69,7 +69,7 @@ export function EngineGuidance({ state }: { state: EngineState }) {
   const guidance = GUIDANCE[computed.result.error.code];
   return (
     <Note title={guidance.title} text={guidance.fix} code={computed.result.error.code}>
-      <PlotButton onClick={() => goToSite("plot")} />
+      <PlotButton onClick={openPlot} />
     </Note>
   );
 }

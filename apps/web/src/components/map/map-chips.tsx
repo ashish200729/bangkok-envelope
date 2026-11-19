@@ -1,80 +1,71 @@
 "use client";
 
-import type { FloorUse } from "@envelope/engine";
-import { cn } from "@envelope/ui/lib/utils";
-import { RotateCcw } from "lucide-react";
-import { floorUseColor, floorUses } from "@/lib/results/designs";
-import { useScene } from "@/lib/results/use-scene";
+import { Button } from "@envelope/ui/components/button";
+import { Popover, PopoverContent, PopoverTrigger } from "@envelope/ui/components/popover";
+import { Switch } from "@envelope/ui/components/switch";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@envelope/ui/components/tooltip";
+import { Layers, RotateCcw } from "lucide-react";
 import { useAsBuilt } from "@/lib/scene/as-built";
 import { type SceneToggles, useSceneView } from "@/lib/scene/view";
 
-const CHIP =
-  "inline-flex h-8 shrink-0 items-center gap-1.5 rounded-full border bg-background/95 px-3 font-medium text-xs shadow-sm backdrop-blur transition-colors hover:bg-muted focus-visible:outline-none focus-visible:ring-3 focus-visible:ring-ring/50";
-const ON = "border-primary/40 bg-primary/10 text-primary hover:bg-primary/15";
-
 const TOGGLES: { key: keyof SceneToggles; label: string; hint: string }[] = [
-  { key: "setback", label: "Setback", hint: "Show the setback band and distances" },
-  { key: "heightLimit", label: "Height limit", hint: "Show the allowed envelope as a ghost" },
-  { key: "asBuilt", label: "As built", hint: "Show the building on the plot today, ghosted" },
+  { key: "heightLimit", label: "Allowed envelope", hint: "The space the rules let you fill" },
+  { key: "setback", label: "Setbacks", hint: "The strip kept clear along each road" },
+  { key: "asBuilt", label: "Existing building", hint: "What stands on the plot today" },
 ];
 
-/** Map toggles as chips: setback, height limit, the building there today, and a view reset. */
-export function MapChips({ onReset }: { onReset: () => void }) {
+/** What the map shows, in one menu, and a way back to the starting view. */
+export function MapLayers({ onReset }: { onReset: () => void }) {
   const toggles = useSceneView((s) => s.layers);
   const asBuiltCount = useAsBuilt((s) => s.buildings.length);
   return (
     <>
-      {TOGGLES.map(({ key, label, hint }) => {
-        const on = toggles[key];
-        const empty = key === "asBuilt" && asBuiltCount === 0;
-        return (
-          <button
-            key={key}
-            type="button"
-            title={empty ? "No mapped building stands on this plot" : hint}
-            aria-pressed={on}
-            disabled={empty}
-            onClick={() => useSceneView.getState().setLayer(key, !on)}
-            className={cn(CHIP, on && ON, empty && "pointer-events-none opacity-50")}
-          >
-            <span
-              aria-hidden
-              className={cn("size-1.5 rounded-full", on ? "bg-primary" : "bg-muted-foreground/40")}
-            />
-            {label}
-          </button>
-        );
-      })}
-      <button type="button" onClick={onReset} className={CHIP} title="Back to the starting view">
-        <RotateCcw className="size-3.5" aria-hidden />
-        Reset view
-      </button>
+      <Popover>
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <PopoverTrigger asChild>
+              <Button variant="secondary" size="icon" aria-label="Map layers">
+                <Layers />
+              </Button>
+            </PopoverTrigger>
+          </TooltipTrigger>
+          <TooltipContent>Map layers</TooltipContent>
+        </Tooltip>
+        <PopoverContent align="start" className="grid w-64 gap-1 p-2" data-testid="map-layers">
+          {TOGGLES.map(({ key, label, hint }) => {
+            const empty = key === "asBuilt" && asBuiltCount === 0;
+            const id = `layer-${key}`;
+            return (
+              <label
+                key={key}
+                htmlFor={id}
+                className="flex cursor-pointer items-center gap-3 rounded-md px-2 py-1.5 hover:bg-muted has-disabled:cursor-default has-disabled:opacity-50"
+              >
+                <span className="grid flex-1 gap-0.5">
+                  <span className="font-medium text-sm">{label}</span>
+                  <span className="text-muted-foreground text-xs">
+                    {empty ? "No mapped building on this plot" : hint}
+                  </span>
+                </span>
+                <Switch
+                  id={id}
+                  checked={toggles[key]}
+                  disabled={empty}
+                  onCheckedChange={(on) => useSceneView.getState().setLayer(key, on)}
+                />
+              </label>
+            );
+          })}
+        </PopoverContent>
+      </Popover>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="secondary" size="icon" onClick={onReset} aria-label="Reset view">
+            <RotateCcw />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Back to the starting view</TooltipContent>
+      </Tooltip>
     </>
-  );
-}
-
-/** The uses of the shown design, with their massing colours. */
-export function MapLegend() {
-  const { scene } = useScene();
-  const design = scene?.design;
-  if (!design) return null;
-  const uses: FloorUse[] = floorUses(design);
-  return (
-    <ul
-      aria-label="Floor uses"
-      data-testid="map-legend"
-      className="pointer-events-none absolute right-3 bottom-9 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-x-3 gap-y-1 rounded-lg border bg-background/90 px-2.5 py-1.5 text-xs shadow-sm backdrop-blur"
-    >
-      {uses.map((use) => (
-        <li key={use} className="flex items-center gap-1.5 capitalize">
-          <span
-            aria-hidden
-            className="size-2.5 rounded-[3px] ring-1 ring-black/10"
-            style={{ background: floorUseColor(use) }}
-          />
-          {use}
-        </li>
-      ))}
-    </ul>
   );
 }

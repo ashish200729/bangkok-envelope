@@ -44,7 +44,7 @@ export function ReturnTab({ design, input }: { design: AnyDesign; input: EngineI
         </p>
         <dl className="grid grid-cols-2 gap-3">
           <div className="grid gap-0.5">
-            <dt className="text-muted-foreground text-xs">Left for land</dt>
+            <dt className="text-muted-foreground text-xs">Residual land value</dt>
             <dd className="font-mono font-semibold text-xl tabular" data-testid="left-for-land">
               {formatTHB(f.leftForLandTHB)}
             </dd>
@@ -71,7 +71,7 @@ export function ReturnTab({ design, input }: { design: AnyDesign; input: EngineI
           <span className="font-mono text-foreground tabular">
             {formatTHB(f.landTreasuryCostTHB)}
           </span>
-          . Left for land is what a developer could pay after building costs and a{" "}
+          . The residual land value is what a developer could pay after building costs and a{" "}
           {formatInt(values.developerMargin * 100)}% profit on all costs.
         </p>
       </section>

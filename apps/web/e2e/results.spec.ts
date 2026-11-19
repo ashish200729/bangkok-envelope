@@ -68,20 +68,12 @@ const deckView = (page: Page) =>
 const notReloaded = (page: Page) =>
   page.evaluate(() => (window as unknown as TestWindow).__noReload === true);
 
-const steps = (page: Page) => page.getByRole("navigation", { name: "Steps" });
-
-/** Plot and Rules are tabs of the "Site and rules" step; the designs are the Options step. */
-async function openTab(page: Page, name: "Plot" | "Rules" | "Designs") {
-  if (name === "Designs") {
-    await steps(page)
-      .getByRole("button", { name: /Options/ })
-      .click();
-    return;
-  }
-  await steps(page)
-    .getByRole("button", { name: /Site and rules/ })
+/** The inspector's sections: Plot, Rules, Schemes (the designs) and Money. */
+async function openTab(page: Page, name: "Plot" | "Rules" | "Designs" | "Money") {
+  await page
+    .getByRole("tablist", { name: "Sections" })
+    .getByRole("tab", { name: name === "Designs" ? "Schemes" : name, exact: true })
     .click();
-  await page.getByRole("tab", { name, exact: true }).click();
 }
 
 test("the allowed space appears on the map as stacked slices", async ({ page }) => {
@@ -144,6 +136,7 @@ test("changing the building type updates the designs", async ({ page }) => {
   await openTab(page, "Designs");
   const designs = page.getByTestId("designs").locator("[data-testid^=option-]");
   expect(await designs.count()).toBeGreaterThanOrEqual(2);
+  await page.getByRole("button", { name: "Compare", exact: true }).click();
   const comparison = page.getByTestId("design-comparison");
   await expect(comparison).toContainText("Units");
 
@@ -153,7 +146,7 @@ test("changing the building type updates the designs", async ({ page }) => {
   await openTab(page, "Designs");
   await expect(comparison).toContainText("Rooms");
   await expect(comparison).not.toContainText("Units");
-  await expect(page.getByTestId("designs")).toContainText(/hotel/i);
+  await expect(page.getByTestId("shape-tab")).toContainText(/hotel/i);
   expect(await notReloaded(page)).toBe(true);
 });
 
@@ -175,7 +168,7 @@ test("selecting a design draws its floors and every schedule adds up", async ({ 
     const rows = await schedule.locator("tbody tr td:last-child").allTextContents();
     const shown = (await schedule.getByTestId("schedule-total").textContent()) ?? "";
     expect(rows.reduce((sum, row) => sum + m2(row), 0)).toBe(m2(shown));
-    await expect(card.getByTestId("card-gfa")).toHaveText(shown);
+    await expect(card.getByTestId("card-gfa")).toContainText(shown);
     await shape.getByTestId("floor-schedule").locator("summary").click();
   }
   await cards.first().click();
@@ -266,18 +259,19 @@ for (const viewport of [
     await openTab(page, "Rules");
     await page.getByLabel("Floor area bonus claimed").fill("20");
     await openTab(page, "Designs");
+    await page.getByRole("button", { name: "Compare", exact: true }).click();
+    const table = page.getByTestId("design-comparison");
+    await expect(table).toBeVisible();
+    await expect(table).toContainText("Residual land");
     if (viewport.width >= 1024) {
-      const table = page.getByTestId("design-comparison");
-      await expect(table).toBeVisible();
       const [scroll, client] = await table.evaluate((t) => [
         t.parentElement?.scrollWidth ?? 0,
         t.parentElement?.clientWidth ?? 0,
       ]);
       expect(scroll).toBeLessThanOrEqual(client);
-    } else {
-      await page.getByTestId("comparison-cards").getByText("Compare all options").click();
-      await expect(page.getByTestId("comparison-cards")).toContainText("Left for land");
     }
+    await page.keyboard.press("Escape");
+    await expect(table).toBeHidden();
     const [docScroll, docClient] = await page.evaluate(() => [
       document.documentElement.scrollWidth,
       document.documentElement.clientWidth,

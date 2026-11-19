@@ -10,7 +10,7 @@ import {
 import { describe, expect, it } from "vitest";
 import { outlinePolygons } from "@/lib/results/designs";
 import { useResultsView } from "@/lib/results/view";
-import { formatMetres, heightCallout, siteAnnotations } from "./annotations";
+import { formatMetres, siteAnnotations } from "./annotations";
 import { asBuiltSummary } from "./as-built";
 import { ccw, distanceToRing, offsetRing, openRing, pointInRing, ringEdges } from "./geometry";
 import {
@@ -94,14 +94,11 @@ describe("massing for a design", () => {
     }
   });
 
-  it("puts a plant room on the roof and the height callout above it", () => {
+  it("puts a plant room on the roof", () => {
     const design = tower();
     const massing = designMassing(design);
     const roofBoxes = massing.boxes.filter((b) => b.position[2] >= design.heightM - 0.01);
     expect(roofBoxes.length).toBeGreaterThanOrEqual(2);
-    const callout = heightCallout(design, massing);
-    expect(callout?.text).toBe(`${Math.round(design.heightM)} m · ${design.floors.length} storeys`);
-    expect(callout?.position[2]).toBeGreaterThan(design.heightM + 3);
   });
 
   it("is the same for the same design, and lights the same windows at night", () => {

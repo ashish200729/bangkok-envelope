@@ -1,6 +1,5 @@
 import {
   AmbientLight,
-  type Deck,
   DirectionalLight,
   type Layer,
   LightingEffect,
@@ -21,7 +20,7 @@ import {
 import type { Map as MapLibreMap, MapMouseEvent } from "maplibre-gl";
 import { outlinePolygons } from "@/lib/results/designs";
 import type { AnyDesign as Design, EnvelopeKind } from "@/lib/results/view";
-import { type Callout, heightCallout, siteAnnotations } from "@/lib/scene/annotations";
+import { siteAnnotations } from "@/lib/scene/annotations";
 import { ccw, offsetRing, openRing } from "@/lib/scene/geometry";
 import { siteLandscape, type Tree } from "@/lib/scene/landscape";
 import {
@@ -37,7 +36,6 @@ import { type Rgb, rgb, SCENE_COLORS, shade } from "@/lib/scene/materials";
 import { groundShadow } from "@/lib/scene/shadow";
 import { type SceneLighting, type SunPosition, sceneLighting, sunPosition } from "@/lib/scene/sun";
 import type { SceneToggles } from "@/lib/scene/view";
-import { createCallouts } from "./callouts";
 import { BOX_MESH, CANOPY_MESH } from "./meshes";
 
 const ENVELOPE_RGB = rgb("#4a86cf");
@@ -498,17 +496,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
     buildable: unknown;
     value: ReturnType<typeof siteAnnotations>;
   } | null = null;
-  const callouts = createCallouts(map, (position) => {
-    // MapLibreOverlay has no public projection; its Deck's viewport matches the map's camera.
-    const deck = (overlay as unknown as { _deck?: Deck })._deck;
-    if (!deck?.isInitialized) return null;
-    const viewport = deck.getViewports()[0];
-    if (!viewport) return null;
-    const [x, y] = viewport.project(position);
-    return x === undefined || y === undefined ? null : [x, y];
-  });
-  let shownCallouts: Callout[] = [];
-
   function annotationsFor(input: EngineInput, view: SceneLayersView) {
     const buildable = view.envelope?.envelope.slices[0]?.footprint ?? null;
     if (annotations?.input !== input || annotations.buildable !== buildable) {
@@ -547,10 +534,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
     const next: Layer[] = [];
     const design = view.design;
     const site = view.input ? annotationsFor(view.input, view) : null;
-    // Road widths are already on the plot's side labels (side-layers.ts); a second label on the
-    // road would repeat them, so only the setback and height callouts are drawn.
-    const labels: Callout[] = [];
-    if (site && view.toggles.setback) labels.push(...site.setback);
     if (design) {
       const massing = designMassing(design);
       if (view.input) {
@@ -573,8 +556,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
         designEdgesLayer(massing.edges),
       );
       if (view.night) next.push(windowsLayer(massing.panes));
-      const height = heightCallout(design, massing);
-      if (height) labels.unshift(height);
       const floorAt = (level: number | null) =>
         level === null ? undefined : design.floors.find((f) => f.level === level);
       const selected = floorAt(view.selectedFloor);
@@ -609,10 +590,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
     }
     layers = next;
     overlay.setProps({ layers });
-    if (labels.length !== shownCallouts.length || labels.some((c, i) => c !== shownCallouts[i])) {
-      shownCallouts = labels;
-      callouts.update(labels);
-    }
   }
 
   function update(view: SceneLayersView) {
@@ -663,7 +640,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
           },
           shadows: SHADOWS,
           toggles: current.toggles,
-          callouts: shownCallouts.map((c) => ({ kind: c.kind, text: c.text })),
         }),
         overlay,
         pick: (x: number, y: number) => {
@@ -681,7 +657,6 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
     update,
     destroy: () => {
       map.off("click", onClick);
-      callouts.destroy();
       overlay.finalize();
     },
   };

@@ -13,10 +13,9 @@ export type AnyDesignId = DesignId | CustomDesignId;
 /** A generated option (A, B, C) or one of the user's edited variants. */
 export type AnyDesign = Design<AnyDesignId>;
 
-/** The three steps across the top. A navigation aid: every step stays reachable. */
-export type Step = "brief" | "site" | "options";
-export type SiteTab = "plot" | "rules";
-export type OptionTab = "shape" | "rules" | "customise" | "cost" | "return";
+/** The inspector's sections, in order. */
+export const SECTIONS = ["plot", "rules", "schemes", "money"] as const;
+export type Section = (typeof SECTIONS)[number];
 
 type ResultsView = {
   /** Which envelope the user asked for; high-rise falls back to low-rise when not allowed. */
@@ -24,9 +23,9 @@ type ResultsView = {
   selectedDesign: AnyDesignId | null;
   /** The floor (its `level`) picked on the map or in a panel; cleared with the design. */
   selectedFloor: number | null;
-  step: Step;
-  siteTab: SiteTab;
-  optionTab: OptionTab;
+  section: Section;
+  /** The selected scheme's editor is open in the Schemes section. */
+  editing: boolean;
   /**
    * The latest build of every studio variant, in the order they were made. Mirrored here by the
    * studio so the map, which already follows this store, draws a selected variant.
@@ -39,11 +38,9 @@ type ResultsViewActions = {
   /** Selecting a design also shows the envelope it was fitted to, and clears the floor. */
   selectDesign: (id: AnyDesignId | null, envelope?: EnvelopeKind) => void;
   setSelectedFloor: (level: number | null) => void;
-  setStep: (step: Step) => void;
-  setSiteTab: (tab: SiteTab) => void;
-  setOptionTab: (tab: OptionTab) => void;
-  /** Opens the Site and rules step on one of its tabs. */
-  goToSite: (tab: SiteTab) => void;
+  setSection: (section: Section) => void;
+  /** Opens the Schemes section with the selected scheme's editor open or closed. */
+  setEditing: (editing: boolean) => void;
   setCustomDesigns: (designs: readonly CustomDesign[]) => void;
 };
 
@@ -51,22 +48,20 @@ export const useResultsView = create<ResultsView & ResultsViewActions>()((set) =
   envelopeKind: "highRise",
   selectedDesign: null,
   selectedFloor: null,
-  step: "options",
-  siteTab: "plot",
-  optionTab: "shape",
+  section: "schemes",
+  editing: false,
   customDesigns: [],
   setEnvelopeKind: (envelopeKind) => set({ envelopeKind }),
   selectDesign: (selectedDesign, envelope) =>
-    set(
-      envelope
-        ? { selectedDesign, selectedFloor: null, envelopeKind: envelope }
-        : { selectedDesign, selectedFloor: null },
-    ),
+    set((s) => {
+      const editing = s.editing && selectedDesign?.startsWith("custom-") === true;
+      return envelope
+        ? { selectedDesign, selectedFloor: null, envelopeKind: envelope, editing }
+        : { selectedDesign, selectedFloor: null, editing };
+    }),
   setSelectedFloor: (selectedFloor) => set({ selectedFloor }),
-  setStep: (step) => set({ step }),
-  setSiteTab: (siteTab) => set({ siteTab }),
-  setOptionTab: (optionTab) => set({ optionTab }),
-  goToSite: (siteTab) => set({ step: "site", siteTab }),
+  setSection: (section) => set({ section }),
+  setEditing: (editing) => set({ section: "schemes", editing }),
   setCustomDesigns: (customDesigns) => set({ customDesigns }),
 }));
 

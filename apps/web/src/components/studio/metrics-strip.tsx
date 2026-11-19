@@ -47,8 +47,8 @@ function tiles(m: DesignMetrics, base: DesignMetrics | null, input: EngineInput)
       testId: "metric-far",
     },
     {
-      label: "Height · storeys",
-      value: `${formatLength(m.heightM)} · ${m.storeys}`,
+      label: "Height",
+      value: `${formatLength(m.heightM)} · ${m.storeys} fl`,
       delta: diff(m.heightM, base?.heightM),
       formatDelta: (n) => `${formatNumber(n, 1)} m`,
       testId: "metric-height",
@@ -124,13 +124,13 @@ export function MetricsStrip({
   const base = baseline ? designMetrics(baseline, input) : null;
   return (
     <div
-      className="sticky top-0 z-20 -mx-5 border-b bg-background/95 px-5 py-2.5 backdrop-blur"
+      className="sticky top-0 z-20 -mx-4 border-b bg-background/95 px-4 py-2.5 backdrop-blur"
       data-testid="metrics-strip"
       data-updating={updating || undefined}
     >
       <dl
         className={cn(
-          "grid grid-cols-4 gap-x-2 gap-y-2 transition-opacity",
+          "grid grid-cols-3 gap-x-3 gap-y-2 transition-opacity",
           updating && "opacity-70",
         )}
       >
@@ -160,12 +160,12 @@ export function MetricsStrip({
           );
         })}
         <div className="grid content-start">
-          <dt className="text-[11px] text-muted-foreground">Checklist</dt>
+          <dt className="text-[11px] text-muted-foreground">Checks</dt>
           <dd>
             <button
               type="button"
               data-testid="checklist-chip"
-              onClick={() => useResultsView.getState().setOptionTab("rules")}
+              onClick={() => useResultsView.getState().setEditing(false)}
               className={cn(
                 "mt-px inline-flex h-6 items-center gap-1 whitespace-nowrap rounded-md px-1.5 font-medium text-[11px] tabular-nums focus-visible:outline-2 focus-visible:outline-ring",
                 m.failCount > 0 ? "bg-fail/12 text-fail" : "bg-pass/12 text-pass",

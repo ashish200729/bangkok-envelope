@@ -28,7 +28,7 @@ import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
 import { createSceneLayers, EMPTY_SCENE, type SceneLayersView } from "./envelope-layers";
-import { MapChips, MapLegend } from "./map-chips";
+import { MapLayers } from "./map-chips";
 import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
 import { SceneControls } from "./scene-controls";
 import { createSideLayers } from "./side-layers";
@@ -472,14 +472,10 @@ export default function PlotMap() {
             </TooltipTrigger>
             <TooltipContent>{is3d ? "Flat 2D view" : "3D view"}</TooltipContent>
           </Tooltip>
-          {/* On phones the chips get their own row and scroll sideways instead of wrapping. */}
-          <div className="flex gap-2 max-sm:order-last max-sm:w-full max-sm:overflow-x-auto max-sm:[scrollbar-width:none]">
-            <MapChips onReset={resetView} />
-          </div>
+          <MapLayers onReset={resetView} />
           <SceneControls />
         </div>
       )}
-      {status.state === "ready" && mode === "edit" && <MapLegend />}
 
       {mode === "draw" && <DrawHud progress={progress} />}
       {hover && mode === "edit" && <SceneTooltip hover={hover} />}

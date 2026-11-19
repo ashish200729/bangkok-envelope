@@ -2,6 +2,33 @@ import { type CheckStatus, type Citation, formatCitation, LAWS } from "@envelope
 import { cn } from "@envelope/ui/lib/utils";
 import type { ReactNode } from "react";
 
+/** A scheme's letter: solid for a generated scheme, outlined for one the user edited. */
+export function SchemeBadge({
+  badge,
+  custom,
+  small,
+  className,
+}: {
+  badge: string;
+  custom: boolean;
+  small?: boolean;
+  className?: string;
+}) {
+  return (
+    <span
+      aria-hidden
+      className={cn(
+        "grid shrink-0 place-items-center rounded-md px-1 font-mono font-semibold",
+        small ? "h-5 min-w-5 text-[10px]" : "h-7 min-w-7 text-xs",
+        custom ? "border border-primary/50 text-primary" : "bg-foreground text-background",
+        className,
+      )}
+    >
+      {badge}
+    </span>
+  );
+}
+
 export function CitationLink({ source, className }: { source: Citation; className?: string }) {
   const law = LAWS[source.law];
   return (

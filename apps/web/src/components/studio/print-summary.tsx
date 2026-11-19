@@ -15,6 +15,7 @@ import {
   formatLength,
   formatPercent,
 } from "@/lib/results/format";
+import { NOTICE } from "@/lib/results/notice";
 import { useScene } from "@/lib/results/use-scene";
 import {
   ASSUMPTION_LABEL,
@@ -23,7 +24,6 @@ import {
   verdictText,
 } from "@/lib/studio/feasibility";
 import { keyLabel } from "@/lib/studio/metrics";
-import { NOTICE } from "../layout/top-bar";
 import { Checklist } from "../results/checklist";
 import { SectionPreview } from "../results/section-preview";
 
@@ -80,7 +80,7 @@ export function PrintSummary() {
       "Income a year",
       money.value.incomePerYearTHB === null ? "–" : formatTHB(money.value.incomePerYearTHB),
     ],
-    ["Left for land", formatTHB(money.leftForLandTHB)],
+    ["Residual land value", formatTHB(money.leftForLandTHB)],
     ["Land at market price", formatTHB(money.landCostTHB)],
     ["Land verdict", verdictText(money, formatTHB)],
   ];
@@ -96,7 +96,7 @@ export function PrintSummary() {
       <header className="mb-3 flex items-end justify-between border-black border-b pb-2">
         <div>
           <p className="text-[10px] uppercase tracking-wider">
-            Bangkok Plot Envelope · concept study
+            Bangkok Plot Envelope · feasibility sketch
           </p>
           <h1 className="font-semibold text-xl">{design.name}</h1>
           <p>{design.summary}</p>

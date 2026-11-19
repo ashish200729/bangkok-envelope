@@ -2,12 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 
 type LngLat = [number, number];
 
-/** The plot inputs live in the "Site and rules" step. */
+/** The plot inputs live in the inspector's Plot section. */
 async function openSiteStep(page: Page) {
-  await page
-    .getByRole("navigation", { name: "Steps" })
-    .getByRole("button", { name: /Site and rules/ })
-    .click();
+  await page.getByRole("tablist", { name: "Sections" }).getByRole("tab", { name: "Plot" }).click();
 }
 
 /** Waits for the map and returns a function that turns lng/lat into page coordinates. */
