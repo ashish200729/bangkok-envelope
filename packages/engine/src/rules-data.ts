@@ -92,7 +92,8 @@ export type UseSizeRule = {
 };
 
 /**
- * Office operating area and hotel room caps in ย.8–ย.10 (2013 plan cl. 15–17). Condos have no cap.
+ * Office and retail operating area and hotel room caps in ย.8–ย.10 (2013 plan cl. 15–17: offices
+ * 15(12), 16(10), 17(10); commerce 15(11), 16(9), 17(9); hotels e.g. 15(8)). Condos have no cap.
  * Tiers ascend; a site may go up to the first tier it does not meet.
  */
 export const USE_SIZE_RULES = {
@@ -113,6 +114,14 @@ export const USE_SIZE_RULES = {
       source: plan("15"),
       tiers: [{ above: 50, needsRoadM: 16, stationExempts: true }],
     },
+    retail: {
+      unit: "m2",
+      source: plan("15(11)"),
+      tiers: [
+        { above: 5_000, needsRoadM: 16, stationExempts: true },
+        { above: 10_000, needsRoadM: 30, stationExempts: true },
+      ],
+    },
   },
   Y9: {
     condo: null,
@@ -125,6 +134,14 @@ export const USE_SIZE_RULES = {
       unit: "rooms",
       source: plan("16"),
       tiers: [{ above: 80, needsRoadM: 12, stationExempts: true }],
+    },
+    retail: {
+      unit: "m2",
+      source: plan("16(9)"),
+      tiers: [
+        { above: 5_000, needsRoadM: 12, stationExempts: true },
+        { above: 10_000, needsRoadM: 16, stationExempts: true },
+      ],
     },
   },
   Y10: {
@@ -139,8 +156,19 @@ export const USE_SIZE_RULES = {
       source: plan("17"),
       tiers: [{ above: 80, needsRoadM: 12, stationExempts: true }],
     },
+    retail: {
+      unit: "m2",
+      source: plan("17(9)"),
+      tiers: [
+        { above: 5_000, needsRoadM: 12, stationExempts: true },
+        { above: 10_000, needsRoadM: 16, stationExempts: true },
+      ],
+    },
   },
-} as const satisfies Record<ZoneCode, Record<BuildingType, UseSizeRule | null>>;
+} as const satisfies Record<ZoneCode, Record<SizedUse, UseSizeRule | null>>;
+
+/** Uses with a size rule of their own: the building types, and retail floors (การประกอบพาณิชยกรรม). */
+export type SizedUse = BuildingType | "retail";
 
 export type UseSizeLimit =
   | { kind: "none"; source: Citation }
@@ -150,14 +178,14 @@ export function stationCounts(stationDistanceM: number | null): boolean {
   return stationDistanceM !== null && stationDistanceM <= LAW.stationRadiusM;
 }
 
-/** The largest office area or hotel room count this site allows, given its widest road. */
+/** The largest office or retail area, or hotel room count, this site allows, given its widest road. */
 export function sizeCapForUse(
   zone: ZoneCode,
-  buildingType: BuildingType,
+  use: SizedUse,
   widestRoadM: number,
   stationDistanceM: number | null,
 ): UseSizeLimit {
-  const rule: UseSizeRule | null = USE_SIZE_RULES[zone][buildingType];
+  const rule: UseSizeRule | null = USE_SIZE_RULES[zone][use];
   if (!rule) return { kind: "none", source: ZONE_RULES[zone].farMax.source };
   const station = stationCounts(stationDistanceM);
   const blockedBy = rule.tiers.find(

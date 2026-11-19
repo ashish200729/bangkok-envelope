@@ -3,13 +3,28 @@
  * (live updates) and the server (saved projects, reports) run the same code.
  */
 
-export { buildDesigns, limitsFor } from "./designs";
+export {
+  buildCustomDesign,
+  buildDesigns,
+  customDesign,
+  defaultFloorSpec,
+  defaultTowerSpec,
+  describeSpecChange,
+  limitsFor,
+  USE_LABEL,
+} from "./designs";
 export {
   type Assumption,
   type Confidence,
+  condoUnits,
   DESIGN_ASSUMPTIONS,
+  defaultUnitSizeM2,
   floorHeightM,
+  hotelRooms,
   keyCount,
+  MAIN_USE,
+  USE_FLOOR_HEIGHT_M,
+  unitSizes,
 } from "./designs/assumptions";
 export { EIA_RULES } from "./designs/checks";
 export {
@@ -17,6 +32,9 @@ export {
   PARKING_RULES,
   type ParkingNeed,
   requiredSpaces,
+  requiredSpacesFor,
+  spacesByUse,
+  type UseMix,
 } from "./designs/parking";
 export {
   BAND_M,
@@ -68,6 +86,7 @@ export {
   type BuildCustomDesign,
   type Check,
   type CheckStatus,
+  type CustomDesign,
   type CustomDesignId,
   type CustomDesignResult,
   DESIGN_IDS,
@@ -112,6 +131,7 @@ export {
   openSpaceMin,
   roadPlaneDistanceM,
   roadSetbackM,
+  type SizedUse,
   type Sourced,
   sizeCapForUse,
   stationCounts,
@@ -130,6 +150,8 @@ export {
   type FloorSpec,
   floorSpecSchema,
   floorUseSchema,
+  MAX_FLOORS,
+  MAX_INSET_M,
   PLATE_SOURCES,
   type TowerSpec,
   towerSpecSchema,

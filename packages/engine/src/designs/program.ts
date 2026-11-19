@@ -1,4 +1,5 @@
 import type { BuildingType } from "../inputs";
+import { MAX_FLOORS, MAX_INSET_M } from "../spec";
 import { DESIGN_ASSUMPTIONS } from "./assumptions";
 import { requiredSpaces } from "./parking";
 import { insetToArea } from "./plates";
@@ -139,7 +140,11 @@ export function bestLayout(
   return realise(best.floors, tier === 1 ? best.useM2 : best.capM2, scheme.minPartialM2);
 }
 
-/** Keeps whole main-use floors up to `useM2` and trims the last one by an even inset. */
+/**
+ * Keeps whole main-use floors up to `useM2` (and at most `MAX_FLOORS` floors, so the design
+ * stays an editable spec) and trims the last one by an even inset of the shape it was cut from,
+ * the same cut an edited design makes.
+ */
 function realise(
   floors: readonly PlannedFloor[],
   useM2: number,
@@ -149,16 +154,22 @@ function realise(
   let stacked = 0;
   for (const floor of floors.filter(isUse)) {
     const room = useM2 - stacked;
-    if (room < minPartialM2) break;
+    if (room < minPartialM2 || out.length >= MAX_FLOORS) break;
     if (floor.plate.areaM2 <= room + 1e-6) {
       out.push(floor);
       stacked += floor.plate.areaM2;
       continue;
     }
-    const trimmed = insetToArea(floor.plate, room);
-    if (trimmed.areaM2 >= minPartialM2) {
-      out.push({ ...floor, plate: trimmed, sliceIndex: -1 });
-      stacked += trimmed.areaM2;
+    const below = out[out.length - 1]?.plate ?? null;
+    const trimmed = insetToArea(floor.basis(), room, below, floor.recipe.insetM);
+    if (trimmed.plate.areaM2 >= minPartialM2 && trimmed.insetM <= MAX_INSET_M) {
+      out.push({
+        ...floor,
+        plate: trimmed.plate,
+        sliceIndex: -1,
+        recipe: { ...floor.recipe, insetM: trimmed.insetM },
+      });
+      stacked += trimmed.plate.areaM2;
     }
     break;
   }

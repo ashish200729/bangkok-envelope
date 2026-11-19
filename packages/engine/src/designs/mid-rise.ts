@@ -27,7 +27,8 @@ export function midRiseScheme(cache: PlateCache, use: FloorUse, useHeightM: numb
       const top = roundM(baseTop + count * useHeightM);
       const index = sliceIndexForTop(cache.set, top);
       if (index === null) break;
-      const plate = cache.ground(index, groundCapM2);
+      const ground = cache.ground(index, groundCapM2);
+      const plate = ground.plate;
       if (plate.areaM2 < minFloor) break;
       const need = budget(base.length * plate.areaM2, plate.areaM2);
       const specs = [
@@ -36,7 +37,15 @@ export function midRiseScheme(cache: PlateCache, use: FloorUse, useHeightM: numb
       ];
       let z = 0;
       const floors = specs.map((spec): PlannedFloor => {
-        const floor = { use: spec.use, z0M: z, heightM: spec.heightM, plate, sliceIndex: index };
+        const floor: PlannedFloor = {
+          use: spec.use,
+          z0M: z,
+          heightM: spec.heightM,
+          plate,
+          sliceIndex: index,
+          recipe: { plate: "envelope", insetM: ground.insetM },
+          basis: () => cache.piece(index),
+        };
         z = roundM(z + spec.heightM);
         return floor;
       });

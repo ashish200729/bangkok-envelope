@@ -2,12 +2,21 @@ import { formatNumber } from "../format";
 import type { RoadFrontage } from "../high-rise";
 import { BUILDING_TYPE_INFO, type EngineInput, ZONES } from "../inputs";
 import type { Citation } from "../law";
-import type { Check, CheckStatus } from "../outputs";
+import type { Check, CheckStatus, FloorUse } from "../outputs";
 import { RULE_INFO, type RuleId } from "../rules";
-import { farLimit, LAW, openSpaceMin, sizeCapForUse, ZONE_RULES } from "../rules-data";
+import {
+  farLimit,
+  LAW,
+  openSpaceMin,
+  type SizedUse,
+  sizeCapForUse,
+  ZONE_RULES,
+} from "../rules-data";
 import type { EnvelopeKind } from "../setbacks";
+import { MAIN_USE } from "./assumptions";
+import { PARKING_RULES } from "./parking";
 import { areaOutsideM2 } from "./plates";
-import type { PlannedFloor, SliceSet } from "./stack";
+import type { BuiltFloor, SliceSet } from "./stack";
 
 /** Below this much floor area outside the envelope, the difference is Clipper rounding. */
 const OUTSIDE_TOLERANCE_M2 = 0.05;
@@ -23,15 +32,18 @@ export const EIA_RULES = {
 export type MeasuredDesign = {
   envelope: EnvelopeKind;
   set: SliceSet;
-  floors: readonly PlannedFloor[];
+  floors: readonly BuiltFloor[];
   heightM: number;
   gfaM2: number;
   farUsed: number;
   openSpaceM2: number;
   osrUsed: number;
-  useAreaM2: number;
-  keyCount: number | null;
+  areaByUse: Readonly<Record<FloorUse, number>>;
+  condoUnits: number;
+  hotelRooms: number;
   parking: { requiredSpaces: number; providedSpaces: number };
+  /** Levels the spec asked for that hold no floor area. */
+  emptyLevels: readonly number[];
 };
 
 export type CheckSite = {
@@ -70,7 +82,7 @@ function switchedOff(
 const passIf = (ok: boolean): CheckStatus => (ok ? "pass" : "fail");
 
 /** Floor area outside the envelope, worst slice per floor, measured against every slice a floor spans. */
-export function areaOutsideEnvelopeM2(set: SliceSet, floors: readonly PlannedFloor[]): number {
+export function areaOutsideEnvelopeM2(set: SliceSet, floors: readonly BuiltFloor[]): number {
   let outside = 0;
   for (const floor of floors) {
     const top = floor.z0M + floor.heightM;
@@ -170,6 +182,7 @@ export function designChecks(site: CheckSite, d: MeasuredDesign): Check[] {
         : `${dec(outside)} m² of floor area lies outside the ${envelopeName} envelope`,
     ),
   );
+  if (d.emptyLevels.length > 0) checks.push(emptyFloorsCheck(d, envelopeName));
 
   if (highRise) checks.push(...highRiseAccess(site, d));
   else {
@@ -185,8 +198,29 @@ export function designChecks(site: CheckSite, d: MeasuredDesign): Check[] {
     );
   }
 
-  checks.push(sizeCheck(site, d), parkingCheck(d), eiaCheck(site, d));
+  checks.push(...sizeChecks(site, d), parkingCheck(d), eiaCheck(site, d));
   return checks;
+}
+
+/** "Floor 3", "Floors 3 and 5", "Floors 3, 4 and 9" (floor 1 is the ground floor). */
+export function floorList(levels: readonly number[]): string {
+  const names = levels.map((level) => String(level + 1));
+  if (names.length === 1) return `Floor ${names[0]}`;
+  return `Floors ${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
+function emptyFloorsCheck(d: MeasuredDesign, envelopeName: string): Check {
+  const n = d.emptyLevels.length;
+  return check(
+    "envelope.fit",
+    "fail",
+    null,
+    null,
+    d.envelope === "lowRise"
+      ? { law: "bma-2544", clause: "49, 50, 54" }
+      : LAW.highRiseClearanceM.source,
+    `${floorList(d.emptyLevels)} ${n === 1 ? "has" : "have"} no floor area: nothing is left after cutting to the ${envelopeName} envelope, the tower and the floor below`,
+  );
 }
 
 function highRiseAccess(site: CheckSite, d: MeasuredDesign): Check[] {
@@ -224,25 +258,73 @@ function highRiseAccess(site: CheckSite, d: MeasuredDesign): Check[] {
   return [...access, large];
 }
 
-function sizeCheck(site: CheckSite, d: MeasuredDesign): Check {
-  const { zone, buildingType, site: siteInput } = site.input;
-  const widest = Math.max(0, ...site.frontages.map((f) => f.road.widthM));
-  const limit = sizeCapForUse(zone, buildingType, widest, siteInput.stationDistanceM);
-  const hotel = buildingType === "hotel";
-  const ruleId: RuleId = hotel ? "use.rooms" : "use.size";
-  const actual = hotel ? (d.keyCount ?? 0) : d.useAreaM2;
-  const zoneLabel = ZONES[zone].labelTh;
-  if (buildingType === "condo") {
-    return check(
-      ruleId,
-      "n/a",
-      actual,
-      null,
-      limit.source,
-      `${zoneLabel} sets no size cap for a condominium`,
-    );
+type CappedUse = Exclude<SizedUse, "condo">;
+
+/** Uses the plan caps by size, the floors they are measured on, and how a check reads. */
+const SIZE_RULES = {
+  office: {
+    floorUse: "office",
+    ruleId: "use.size",
+    actual: (d: MeasuredDesign) => d.areaByUse.office,
+    what: (n: number) => `${int(n)} m² of office floor`,
+  },
+  hotel: {
+    floorUse: "hotel",
+    ruleId: "use.rooms",
+    actual: (d: MeasuredDesign) => d.hotelRooms,
+    what: (n: number) => `${int(n)} rooms`,
+  },
+  retail: {
+    floorUse: "retail",
+    ruleId: "use.size",
+    actual: (d: MeasuredDesign) => d.areaByUse.retail,
+    what: (n: number) => `${int(n)} m² of retail floor`,
+  },
+} as const satisfies Record<
+  CappedUse,
+  {
+    floorUse: FloorUse;
+    ruleId: RuleId;
+    actual: (d: MeasuredDesign) => number;
+    what: (n: number) => string;
   }
-  const what = hotel ? `${int(actual)} rooms` : `${int(actual)} m² of office floor`;
+>;
+
+const CAPPED_USES = ["office", "hotel", "retail"] as const satisfies readonly CappedUse[];
+
+/** The main use's size check, then one for every other capped use the design has floors of. */
+function sizeChecks(site: CheckSite, d: MeasuredDesign): Check[] {
+  const { zone, buildingType } = site.input;
+  const main = buildingType === "condo" ? null : buildingType;
+  const others = CAPPED_USES.filter(
+    (use) => use !== main && d.areaByUse[SIZE_RULES[use].floorUse] > 0,
+  );
+  const condo =
+    buildingType === "condo"
+      ? [
+          check(
+            "use.size",
+            "n/a",
+            d.areaByUse[MAIN_USE.condo],
+            null,
+            sizeCapForUse(zone, "condo", 0, null).source,
+            `${ZONES[zone].labelTh} sets no size cap for a condominium`,
+          ),
+        ]
+      : [];
+  const capped = [...(main ? [main] : []), ...others].map((use) => sizeCheck(site, d, use));
+  return [...condo, ...capped];
+}
+
+function sizeCheck(site: CheckSite, d: MeasuredDesign, use: CappedUse): Check {
+  const { zone, site: siteInput } = site.input;
+  const widest = Math.max(0, ...site.frontages.map((f) => f.road.widthM));
+  const limit = sizeCapForUse(zone, use, widest, siteInput.stationDistanceM);
+  const rule = SIZE_RULES[use];
+  const ruleId: RuleId = rule.ruleId;
+  const actual = rule.actual(d);
+  const zoneLabel = ZONES[zone].labelTh;
+  const what = rule.what(actual);
   if (limit.kind === "none") {
     return check(
       ruleId,
@@ -264,14 +346,17 @@ function sizeCheck(site: CheckSite, d: MeasuredDesign): Check {
   );
 }
 
+const PARKED_USES = ["residential", "office", "retail", "hotel"] as const satisfies FloorUse[];
+
 function parkingCheck(d: MeasuredDesign): Check {
   const { requiredSpaces, providedSpaces } = d.parking;
+  const mixed = PARKED_USES.filter((use) => d.areaByUse[use] > 0).length > 1;
   return check(
     "parking.min",
     passIf(providedSpaces >= requiredSpaces),
     providedSpaces,
     requiredSpaces,
-    LAW.parking.source,
+    mixed ? PARKING_RULES.mixedSource : LAW.parking.source,
     providedSpaces >= requiredSpaces
       ? `${int(providedSpaces)} spaces provided; the law asks for ${int(requiredSpaces)}`
       : `Only ${int(providedSpaces)} spaces fit; the law asks for ${int(requiredSpaces)}`,
@@ -279,19 +364,29 @@ function parkingCheck(d: MeasuredDesign): Check {
 }
 
 function eiaCheck(site: CheckSite, d: MeasuredDesign): Check {
-  const lodging = site.input.buildingType !== "office";
-  const rule = lodging ? EIA_RULES.lodging : EIA_RULES.other;
-  const needed = lodging
-    ? (d.keyCount ?? 0) >= EIA_RULES.lodging.keys || d.gfaM2 >= rule.areaM2
-    : d.heightM >= EIA_RULES.other.heightM || d.gfaM2 >= rule.areaM2;
-  const trigger = lodging
-    ? `${EIA_RULES.lodging.keys} ${site.input.buildingType === "hotel" ? "rooms" : "units"} or ${int(rule.areaM2)} m²`
-    : `${EIA_RULES.other.heightM} m tall or ${int(rule.areaM2)} m²`;
+  const type = site.input.buildingType;
+  const a = d.areaByUse;
+  const hasRooms = type === "hotel" || a.hotel > 0;
+  const hasUnits = type === "condo" || a.residential > 0;
+  const lodging = hasRooms || hasUnits;
+  const other = type === "office" || a.office + a.retail > 0;
+  const { lodging: lr, other: or } = EIA_RULES;
+  const needed =
+    (lodging && (d.condoUnits >= lr.keys || d.hotelRooms >= lr.keys || d.gfaM2 >= lr.areaM2)) ||
+    (other && (d.heightM >= or.heightM || d.gfaM2 >= or.areaM2));
+  const keys = [hasUnits ? "units" : null, hasRooms ? "rooms" : null].filter(Boolean).join(" or ");
+  const trigger = [
+    lodging ? `${lr.keys} ${keys} or ${int(lr.areaM2)} m²` : null,
+    other ? `${or.heightM} m tall or ${int(or.areaM2)} m²` : null,
+  ]
+    .filter(Boolean)
+    .join("; or ");
+  const limit = lodging ? lr.areaM2 : or.areaM2;
   return check(
     "eia.threshold",
     needed ? "warn" : "pass",
     d.gfaM2,
-    rule.areaM2,
+    limit,
     EIA_RULES.source,
     needed
       ? `Needs an environmental impact assessment report (from ${trigger}). This is an approval step before the permit, not a refusal`

@@ -1,4 +1,5 @@
 import type { BuildingType } from "../inputs";
+import type { FloorUse } from "../outputs";
 
 /**
  * How sure we are of a number: stated in a source, derived by arithmetic from sources, or an
@@ -30,6 +31,19 @@ export const DESIGN_ASSUMPTIONS = {
     unit: "m",
     source:
       "Typical floor-to-floor heights; statutory minimum rooms are 2.60 m (homes, hotels) and 3.00 m (offices), MR 55 cl. 22",
+    confidence: "estimate",
+  },
+  retailFloorHeightM: {
+    value: 4.5,
+    unit: "m",
+    source:
+      "Common shop floor-to-floor height; the statutory minimum for shops is 3.50 m (MR 55 cl. 22)",
+    confidence: "estimate",
+  },
+  amenityFloorHeightM: {
+    value: 4,
+    unit: "m",
+    source: "Common height for a gym, pool deck or lounge floor",
     confidence: "estimate",
   },
   parkingM2PerSpace: {
@@ -86,13 +100,57 @@ export function floorHeightM(buildingType: BuildingType): number {
   return DESIGN_ASSUMPTIONS.floorHeightM.value[buildingType];
 }
 
+/** The floor use a building type is mostly made of. */
+export const MAIN_USE = {
+  condo: "residential",
+  office: "office",
+  hotel: "hotel",
+} as const satisfies Record<BuildingType, FloorUse>;
+
+/** Typical floor-to-floor height of each floor use (estimates; see `DESIGN_ASSUMPTIONS`). */
+export const USE_FLOOR_HEIGHT_M = {
+  lobby: DESIGN_ASSUMPTIONS.lobbyHeightM.value,
+  parking: DESIGN_ASSUMPTIONS.parkingFloorHeightM.value,
+  retail: DESIGN_ASSUMPTIONS.retailFloorHeightM.value,
+  amenity: DESIGN_ASSUMPTIONS.amenityFloorHeightM.value,
+  residential: DESIGN_ASSUMPTIONS.floorHeightM.value.condo,
+  office: DESIGN_ASSUMPTIONS.floorHeightM.value.office,
+  hotel: DESIGN_ASSUMPTIONS.floorHeightM.value.hotel,
+} as const satisfies Record<FloorUse, number>;
+
+/**
+ * `DesignSpec.unitSizeM2` sizes hotel rooms in a hotel and condo units in a condo or an office;
+ * the other lodging use keeps its default size.
+ */
+export function unitSizes(
+  buildingType: BuildingType,
+  unitSizeM2: number,
+): { condoUnitM2: number; hotelM2PerKey: number } {
+  const a = DESIGN_ASSUMPTIONS;
+  return buildingType === "hotel"
+    ? { condoUnitM2: a.condoUnitM2.value, hotelM2PerKey: unitSizeM2 }
+    : { condoUnitM2: unitSizeM2, hotelM2PerKey: a.hotelM2PerKey.value };
+}
+
+export function defaultUnitSizeM2(buildingType: BuildingType): number {
+  const a = DESIGN_ASSUMPTIONS;
+  return buildingType === "hotel" ? a.hotelM2PerKey.value : a.condoUnitM2.value;
+}
+
+/** Condo units in this much residential floor area. */
+export function condoUnits(residentialM2: number, unitM2: number): number {
+  return Math.floor((residentialM2 * DESIGN_ASSUMPTIONS.condoEfficiency.value) / unitM2);
+}
+
+/** Hotel rooms in this much hotel floor area. */
+export function hotelRooms(hotelM2: number, m2PerKey: number): number {
+  return Math.floor(hotelM2 / m2PerKey);
+}
+
 /** Condo units or hotel rooms from main-use floor area; null for offices. */
 export function keyCount(buildingType: BuildingType, useAreaM2: number): number | null {
-  if (buildingType === "condo") {
-    const a = DESIGN_ASSUMPTIONS;
-    return Math.floor((useAreaM2 * a.condoEfficiency.value) / a.condoUnitM2.value);
-  }
-  if (buildingType === "hotel")
-    return Math.floor(useAreaM2 / DESIGN_ASSUMPTIONS.hotelM2PerKey.value);
+  const a = DESIGN_ASSUMPTIONS;
+  if (buildingType === "condo") return condoUnits(useAreaM2, a.condoUnitM2.value);
+  if (buildingType === "hotel") return hotelRooms(useAreaM2, a.hotelM2PerKey.value);
   return null;
 }

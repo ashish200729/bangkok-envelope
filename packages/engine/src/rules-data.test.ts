@@ -75,6 +75,20 @@ describe("use size caps (2013 plan cl. 15–17)", () => {
     expect(cap("Y9", "hotel", 10, null)).toBe(80);
     expect(cap("Y10", "hotel", 10, 100)).toBeNull();
   });
+
+  it("caps retail (การประกอบพาณิชยกรรม) at 5,000 and 10,000 m² unless the road or a station allows more", () => {
+    expect(cap("Y8", "retail", 12, null)).toBe(5_000);
+    expect(cap("Y8", "retail", 16, null)).toBe(10_000);
+    expect(cap("Y8", "retail", 30, null)).toBeNull();
+    expect(cap("Y8", "retail", 6, 400)).toBeNull();
+    expect(cap("Y9", "retail", 10, null)).toBe(5_000);
+    expect(cap("Y9", "retail", 12, null)).toBe(10_000);
+    expect(cap("Y10", "retail", 16, null)).toBeNull();
+    expect(sizeCapForUse("Y10", "retail", 8, null).source).toEqual({
+      law: "bkk-plan-2556",
+      clause: "17(9)",
+    });
+  });
 });
 
 describe("projection", () => {

@@ -2,24 +2,19 @@ import type { SiteAnalysis } from "../evaluate";
 import { formatNumber } from "../format";
 import type { BuildingType, EngineInput } from "../inputs";
 import type { Design, DesignId, FloorUse } from "../outputs";
-import type { XY } from "../projection";
 import { farLimit, LAW, openSpaceMin, sizeCapForUse, ZONE_RULES } from "../rules-data";
 import type { EnvelopeKind } from "../setbacks";
-import { DESIGN_ASSUMPTIONS, floorHeightM, keyCount } from "./assumptions";
-import { designChecks } from "./checks";
+import { DESIGN_ASSUMPTIONS, defaultUnitSizeM2, floorHeightM, MAIN_USE } from "./assumptions";
+import { measureDesign } from "./measure";
 import { midRiseScheme } from "./mid-rise";
-import { requiredSpaces } from "./parking";
-import { toPolygon } from "./plates";
 import { bestLayout, type Layout, type Limits } from "./program";
+import { specOf } from "./recipe";
 import { PlateCache, type Scheme, type SliceSet } from "./stack";
 import { steppedScheme } from "./stepped";
-import { towerScheme } from "./tower";
+import { roadDirection, siteAnchor, towerScheme } from "./tower";
 
-const MAIN_USE = {
-  condo: "residential",
-  office: "office",
-  hotel: "hotel",
-} as const satisfies Record<BuildingType, FloorUse>;
+export { buildCustomDesign, customDesign } from "./custom";
+export { defaultFloorSpec, defaultTowerSpec, describeSpecChange, USE_LABEL } from "./studio";
 
 const USE_NOUN = { condo: "condo", office: "office", hotel: "hotel" } as const satisfies Record<
   BuildingType,
@@ -77,17 +72,6 @@ function groundCaps(plot: number, gfa: number, osrMin: number | null, openShare:
     : [open];
 }
 
-function roadDirection(site: SiteAnalysis): XY {
-  let best = site.plot.edges[0];
-  for (const edge of site.plot.edges) {
-    if (edge.side.kind === "road" && (best?.side.kind !== "road" || edge.lengthM > best.lengthM)) {
-      best = edge;
-    }
-  }
-  if (!best) return { x: 1, y: 0 };
-  return { x: (best.b.x - best.a.x) / best.lengthM, y: (best.b.y - best.a.y) / best.lengthM };
-}
-
 /** Used only to guess the tower's mid-height when choosing where the tower stands. */
 const TYPICAL_PODIUM_PARKING_FLOORS = 3;
 /** A stepped design within this share of A's floor area, with as many floors, repeats A. */
@@ -128,70 +112,28 @@ function summary(input: EngineInput, p: Planned, heightM: number): string {
 }
 
 function toDesign(input: EngineInput, site: SiteAnalysis, p: Planned): Design {
-  const { projection } = site.plot;
-  const plot = site.plot.areaM2;
-  const floors = p.layout.floors.map((f, level) => ({
-    level,
-    z0M: f.z0M,
-    heightM: f.heightM,
-    use: f.use,
-    outline: toPolygon(f.plate, projection),
-    areaM2: f.plate.areaM2,
-  }));
-  const sum = (keep: (use: FloorUse) => boolean) =>
-    floors.reduce((s, f) => (keep(f.use) ? s + f.areaM2 : s), 0);
-  const gfaM2 = sum(() => true);
-  const useAreaM2 = sum((use) => use === MAIN_USE[input.buildingType]);
-  const lobby = sum((use) => use === "lobby");
-  const parkingArea = sum((use) => use === "parking");
-  const last = floors[floors.length - 1];
-  const heightM = last ? last.z0M + last.heightM : 0;
-  const footprintM2 = floors[0]?.areaM2 ?? 0;
-  const openSpaceM2 = plot - footprintM2;
-  const keys = keyCount(input.buildingType, useAreaM2);
-  const parking = {
-    requiredSpaces: requiredSpaces(input.buildingType, {
-      useAreaM2,
-      otherAreaM2: lobby,
-      totalAreaM2: gfaM2,
-      heightM,
-    }),
-    providedSpaces: Math.floor(parkingArea / DESIGN_ASSUMPTIONS.parkingM2PerSpace.value),
-  };
-  const measured = {
+  const unitSizeM2 = defaultUnitSizeM2(input.buildingType);
+  const floors = p.layout.floors;
+  const measured = measureDesign(input, site, {
     envelope: p.envelope,
     set: p.set,
-    floors: p.layout.floors,
-    heightM,
-    gfaM2,
-    farUsed: gfaM2 / plot,
-    openSpaceM2,
-    osrUsed: gfaM2 > 0 ? openSpaceM2 / gfaM2 : 0,
-    useAreaM2,
-    keyCount: keys,
-    parking,
-  };
-  const checks = designChecks(
-    { input, plotAreaM2: plot, frontages: site.frontages, accessChecks: site.highRise.checks },
-    measured,
-  );
+    floors,
+    unitSizeM2,
+  });
+  const spec = specOf({
+    name: NAMES[p.id],
+    envelope: p.envelope,
+    set: p.set,
+    straight: p.id === "midrise",
+    floors,
+    buildingType: input.buildingType,
+  });
   return {
     id: p.id,
     name: NAMES[p.id],
-    summary: summary(input, p, heightM),
-    envelope: p.envelope,
-    floors,
-    heightM,
-    gfaM2,
-    farUsed: measured.farUsed,
-    footprintM2,
-    openSpaceM2,
-    osrUsed: measured.osrUsed,
-    useAreaM2,
-    keyCount: keys,
-    parking,
-    checks,
-    passes: !checks.some((c) => c.status === "fail"),
+    summary: summary(input, p, measured.heightM),
+    spec,
+    ...measured,
   };
 }
 
@@ -247,6 +189,7 @@ export function buildDesigns(input: EngineInput, site: SiteAnalysis): Design[] {
       direction: roadDirection(site),
       targetM2,
       midHeightM: podiumM + (towerFloors / 2) * height,
+      anchor: siteAnchor(site.lowRise),
     });
     const tower = plan("podium-tower", "highRise", highSet, scheme, highLimits);
     if (tower && topOf(tower.layout) >= LAW.highRiseThresholdM.value) b = tower;

@@ -94,10 +94,16 @@ export type DesignId = (typeof DESIGN_IDS)[number];
 /** A user's edited design in the studio. */
 export type CustomDesignId = `custom-${string}`;
 
-export type Design = {
-  id: DesignId;
+/** A generated design (`Design`) or, with `CustomDesignId`, an edited one (`CustomDesign`). */
+export type Design<Id extends DesignId | CustomDesignId = DesignId> = {
+  id: Id;
   name: string;
   summary: string;
+  /**
+   * The recipe this design is built from. `buildCustomDesign(input, spec, id)` rebuilds the
+   * same floors (areas within 0.5 m²), so the studio starts from exactly this building.
+   */
+  spec: DesignSpec;
   /** The envelope the design was fitted to and checked against. */
   envelope: keyof Envelopes;
   /** Bottom to top. gfaM2 is the sum of their areaM2. */
@@ -110,7 +116,10 @@ export type Design = {
   osrUsed: number;
   /** Floor area of the main use (residential, office or hotel floors), the plan's "operating area". */
   useAreaM2: number;
-  /** Estimated condo units or hotel rooms; null for offices. */
+  /**
+   * Estimated condo units (from residential floors) or hotel rooms (from hotel floors), by the
+   * building type; null for offices.
+   */
   keyCount: number | null;
   parking: { requiredSpaces: number; providedSpaces: number };
   checks: readonly Check[];
@@ -153,8 +162,10 @@ export type EngineResult = EngineSuccess | EngineFailure;
 export type Evaluate = (input: EngineInput) => EngineResult;
 
 /** Result of turning an edited spec into a checked design. Errors are values, as everywhere. */
+export type CustomDesign = Design<CustomDesignId>;
+
 export type CustomDesignResult =
-  | { ok: true; design: Design }
+  | { ok: true; design: CustomDesign }
   | { ok: false; error: { code: EngineErrorCode | "empty-design"; message: string } };
 
 /** Build and check a design from an edited spec, with the same rules as the generated ones. */
