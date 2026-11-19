@@ -16,6 +16,8 @@
     "check:fix": "biome check --write .",
     "db:generate": "pnpm --filter @envelope/db generate",
     "db:migrate": "pnpm --filter @envelope/db migrate",
+    "db:seed": "pnpm --filter @envelope/db seed:load",
+    "db:seed:fetch": "pnpm --filter @envelope/db seed:fetch",
     "db:studio": "pnpm --filter @envelope/db studio",
     "auth:schema": "pnpm --filter @envelope/auth schema"
   },
