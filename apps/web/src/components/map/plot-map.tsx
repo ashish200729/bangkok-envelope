@@ -14,10 +14,16 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { type SceneHover, SceneTooltip } from "@/components/results/scene-tooltip";
+import { startEngine, useEngineStore } from "@/lib/engine/store";
 import { usePlotStore } from "@/lib/plot/store";
+import { fixtureFlag } from "@/lib/results/fixtures";
+import { sceneFor } from "@/lib/results/scene";
+import { useResultsView } from "@/lib/results/view";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
+import { createSceneLayers, type SceneLayersView } from "./envelope-layers";
 import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
 import { createSideLayers } from "./side-layers";
 
@@ -58,6 +64,7 @@ export default function PlotMap() {
   const [progress, setProgress] = useState<DrawProgress>(NO_PROGRESS);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
+  const [hover, setHover] = useState<SceneHover | null>(null);
   const mode = usePlotStore((s) => s.mode);
 
   useEffect(() => {
@@ -132,6 +139,32 @@ export default function PlotMap() {
       sides.raiseLabels();
       measure.raise();
 
+      const scene = createSceneLayers(map, { onHover: setHover });
+      const useFixtures = fixtureFlag();
+      let shown: SceneLayersView = { envelope: null, design: null };
+      const renderScene = () => {
+        const next = sceneFor(
+          useEngineStore.getState().state,
+          useResultsView.getState(),
+          useFixtures,
+        );
+        const view: SceneLayersView =
+          next && store.getState().mode === "edit"
+            ? { envelope: next.envelope, design: next.design }
+            : { envelope: null, design: null };
+        if (
+          view.envelope?.envelope === shown.envelope?.envelope &&
+          view.envelope?.kind === shown.envelope?.kind &&
+          view.design === shown.design
+        ) {
+          return;
+        }
+        shown = view;
+        scene.update(view);
+      };
+      startEngine();
+      renderScene();
+
       const render = () => {
         const s = store.getState();
         sides.render({ ...s, draggedCorner });
@@ -173,6 +206,9 @@ export default function PlotMap() {
       drawRef.current = draw;
       cleanups.push(
         unsubscribe,
+        useEngineStore.subscribe(renderScene),
+        useResultsView.subscribe(renderScene),
+        () => scene.destroy(),
         () => map.off("rotate", render),
         () => measure.destroy(),
         () => draw.destroy(),
@@ -265,6 +301,7 @@ export default function PlotMap() {
       )}
 
       {mode === "draw" && <DrawHud progress={progress} />}
+      {hover && mode === "edit" && <SceneTooltip hover={hover} />}
 
       {status.state === "loading" && (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">

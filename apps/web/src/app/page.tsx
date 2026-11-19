@@ -1,6 +1,6 @@
 import { Badge } from "@envelope/ui/components/badge";
 import { PlotMapLoader } from "@/components/map/plot-map-loader";
-import { PlotPanel } from "@/components/panel/plot-panel";
+import { ResultsPanel } from "@/components/results/results-panel";
 import { ThemeToggle } from "@/components/theme-toggle";
 
 export default function PlotPage() {
@@ -23,10 +23,10 @@ export default function PlotPage() {
           <PlotMapLoader />
         </section>
         <aside
-          aria-label="Plot details"
-          className="w-full border-t lg:w-[400px] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l"
+          aria-label="Plot, rules and designs"
+          className="w-full border-t lg:w-[440px] lg:shrink-0 lg:overflow-y-auto lg:border-t-0 lg:border-l"
         >
-          <PlotPanel />
+          <ResultsPanel />
         </aside>
       </main>
     </div>
