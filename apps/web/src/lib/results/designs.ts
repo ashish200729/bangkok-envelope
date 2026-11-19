@@ -1,4 +1,5 @@
-import type { Design, FloorUse, MultiPolygon, Polygon } from "@envelope/engine";
+import type { FloorUse, MultiPolygon, Polygon } from "@envelope/engine";
+import type { AnyDesign as Design } from "./view";
 
 /** A floor outline may be one polygon or, for split floors, several. */
 export type Outline = Polygon | MultiPolygon;

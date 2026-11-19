@@ -29,6 +29,15 @@ async function openMap(page: Page) {
   );
   await page.getByRole("button", { name: "Switch to a flat 2D view" }).click();
   await settled(page);
+  await openSiteStep(page);
+}
+
+/** The plot inputs live in the "Site and rules" step. */
+async function openSiteStep(page: Page) {
+  await page
+    .getByRole("navigation", { name: "Steps" })
+    .getByRole("button", { name: /Site and rules/ })
+    .click();
 }
 
 async function drawPlot(page: Page, corners: LngLat[]) {
@@ -165,6 +174,7 @@ test("a failed site request leaves the plot usable and can be retried", async ({
     route.fulfill({ status: 500, body: "{}" }),
   );
   await page.goto("/");
+  await openSiteStep(page);
   const notice = page.getByTestId("site-status");
   await expect(notice).toContainText(
     "Couldn't load site data. Your plot still works; mark roads by hand.",

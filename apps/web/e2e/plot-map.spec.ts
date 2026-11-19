@@ -2,6 +2,14 @@ import { expect, type Page, test } from "@playwright/test";
 
 type LngLat = [number, number];
 
+/** The plot inputs live in the "Site and rules" step. */
+async function openSiteStep(page: Page) {
+  await page
+    .getByRole("navigation", { name: "Steps" })
+    .getByRole("button", { name: /Site and rules/ })
+    .click();
+}
+
 /** Waits for the map and returns a function that turns lng/lat into page coordinates. */
 async function openMap(page: Page) {
   await page.goto("/");
@@ -26,6 +34,7 @@ async function openMap(page: Page) {
     null,
     { timeout: 30_000 },
   );
+  await openSiteStep(page);
   const box = await page.getByTestId("plot-map").boundingBox();
   if (!box) throw new Error("map has no size");
   return async (lngLat: LngLat) => {

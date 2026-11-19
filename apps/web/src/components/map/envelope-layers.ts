@@ -1,10 +1,10 @@
 import type { Layer } from "@deck.gl/core";
 import { PathLayer, SolidPolygonLayer } from "@deck.gl/layers";
 import { MapLibreOverlay } from "@deck.gl/maplibre";
-import type { Design, Envelope, EnvelopeSlice, Floor, Polygon } from "@envelope/engine";
+import type { Envelope, EnvelopeSlice, Floor, Polygon } from "@envelope/engine";
 import type { Map as MapLibreMap } from "maplibre-gl";
 import { outlinePolygons, USE_RGB } from "@/lib/results/designs";
-import type { EnvelopeKind } from "@/lib/results/view";
+import type { AnyDesign as Design, EnvelopeKind } from "@/lib/results/view";
 
 /** Gap between stacked floor slabs, so each floor reads on its own. */
 const FLOOR_GAP_M = 0.4;

@@ -26,7 +26,6 @@ import { toEngineInput } from "@/lib/plot/engine-input";
 import { formatM, formatM2, formatThaiLandArea } from "@/lib/plot/format";
 import { areaM2, perimeterM } from "@/lib/plot/geometry";
 import { usePlotStore } from "@/lib/plot/store";
-import { useSiteSync } from "@/lib/site/use-site-sync";
 import { RoadsList } from "./roads-list";
 import { SidesList } from "./sides-list";
 import { SiteAttribution, SiteStatus } from "./site-status";
@@ -50,7 +49,6 @@ export function PlotPanel() {
   const roads = usePlotStore((s) => s.roads);
   const settings = usePlotStore((s) => s.settings);
   const mode = usePlotStore((s) => s.mode);
-  useSiteSync();
 
   const vertices = useMemo(() => draft.vertices.map((v) => v.lngLat), [draft.vertices]);
   const area = useMemo(() => areaM2(vertices), [vertices]);

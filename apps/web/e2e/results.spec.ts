@@ -47,6 +47,7 @@ async function openTool(page: Page) {
   await page.evaluate(() => {
     (window as unknown as TestWindow).__noReload = true;
   });
+  await openTab(page, "Plot");
   const box = await page.getByTestId("plot-map").boundingBox();
   if (!box) throw new Error("map has no size");
   return async (lngLat: LngLat) => {
@@ -67,8 +68,20 @@ const deckView = (page: Page) =>
 const notReloaded = (page: Page) =>
   page.evaluate(() => (window as unknown as TestWindow).__noReload === true);
 
+const steps = (page: Page) => page.getByRole("navigation", { name: "Steps" });
+
+/** Plot and Rules are tabs of the "Site and rules" step; the designs are the Options step. */
 async function openTab(page: Page, name: "Plot" | "Rules" | "Designs") {
-  await page.getByRole("tab", { name }).click();
+  if (name === "Designs") {
+    await steps(page)
+      .getByRole("button", { name: /Options/ })
+      .click();
+    return;
+  }
+  await steps(page)
+    .getByRole("button", { name: /Site and rules/ })
+    .click();
+  await page.getByRole("tab", { name, exact: true }).click();
 }
 
 test("the allowed space appears on the map as stacked slices", async ({ page }) => {
@@ -129,7 +142,7 @@ test("a wider road raises the allowed height", async ({ page }) => {
 test("changing the building type updates the designs", async ({ page }) => {
   await openTool(page);
   await openTab(page, "Designs");
-  const designs = page.getByTestId("designs").locator("article");
+  const designs = page.getByTestId("designs").locator("[data-testid^=option-]");
   expect(await designs.count()).toBeGreaterThanOrEqual(2);
   const comparison = page.getByTestId("design-comparison");
   await expect(comparison).toContainText("Units");
@@ -140,28 +153,32 @@ test("changing the building type updates the designs", async ({ page }) => {
   await openTab(page, "Designs");
   await expect(comparison).toContainText("Rooms");
   await expect(comparison).not.toContainText("Units");
-  await expect(page.getByTestId("designs")).toContainText("Hotel");
+  await expect(page.getByTestId("designs")).toContainText(/hotel/i);
   expect(await notReloaded(page)).toBe(true);
 });
 
 test("selecting a design draws its floors and every schedule adds up", async ({ page }) => {
   const project = await openTool(page);
   await openTab(page, "Designs");
-  const first = page.getByTestId("designs").locator("article").first();
-  await first.getByRole("button", { name: "Show on the map" }).click();
+  const cards = page.getByTestId("designs").locator("[data-testid^=option-]");
+  await cards.first().click();
+  await expect(cards.first()).toHaveAttribute("aria-pressed", "true");
+  await expect.poll(async () => (await deckView(page))?.designId).toBe("midrise");
   await expect.poll(() => layerIds(page)).toContain("design-floors");
 
-  await first.getByText("Floor schedule").click();
-  const total = await first.getByTestId("schedule-total").textContent();
-  await expect(first.locator("dl")).toContainText(total ?? "missing");
-
+  const shape = page.getByTestId("shape-tab");
   const m2 = (text: string) => Number(text.replace(/[^\d]/g, ""));
-  for (const card of await page.getByTestId("designs").locator("article").all()) {
-    const schedule = card.locator("table");
+  for (const card of await cards.all()) {
+    await card.click();
+    await shape.getByTestId("floor-schedule").locator("summary").click();
+    const schedule = shape.locator("table");
     const rows = await schedule.locator("tbody tr td:last-child").allTextContents();
-    const shown = await schedule.getByTestId("schedule-total").textContent();
-    expect(rows.reduce((sum, row) => sum + m2(row), 0)).toBe(m2(shown ?? ""));
+    const shown = (await schedule.getByTestId("schedule-total").textContent()) ?? "";
+    expect(rows.reduce((sum, row) => sum + m2(row), 0)).toBe(m2(shown));
+    await expect(card.getByTestId("card-gfa")).toHaveText(shown);
+    await shape.getByTestId("floor-schedule").locator("summary").click();
   }
+  await cards.first().click();
 
   const centre = await project(SAMPLE_CENTRE);
   await page.mouse.move(centre.x, centre.y);
@@ -249,12 +266,22 @@ for (const viewport of [
     await openTab(page, "Rules");
     await page.getByLabel("Floor area bonus claimed").fill("20");
     await openTab(page, "Designs");
-    const table = page.getByTestId("design-comparison");
-    await expect(table).toContainText("max 9.6×");
-    const [scroll, client] = await table.evaluate((t) => [
-      t.parentElement?.scrollWidth ?? 0,
-      t.parentElement?.clientWidth ?? 0,
+    if (viewport.width >= 1024) {
+      const table = page.getByTestId("design-comparison");
+      await expect(table).toBeVisible();
+      const [scroll, client] = await table.evaluate((t) => [
+        t.parentElement?.scrollWidth ?? 0,
+        t.parentElement?.clientWidth ?? 0,
+      ]);
+      expect(scroll).toBeLessThanOrEqual(client);
+    } else {
+      await page.getByTestId("comparison-cards").getByText("Compare all options").click();
+      await expect(page.getByTestId("comparison-cards")).toContainText("Left for land");
+    }
+    const [docScroll, docClient] = await page.evaluate(() => [
+      document.documentElement.scrollWidth,
+      document.documentElement.clientWidth,
     ]);
-    expect(scroll).toBeLessThanOrEqual(client);
+    expect(docScroll).toBeLessThanOrEqual(docClient);
   });
 }

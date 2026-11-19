@@ -11,9 +11,10 @@ export function useScene(): { state: EngineState; scene: Scene | null } {
   const state = useEngineResult();
   const envelopeKind = useResultsView((s) => s.envelopeKind);
   const selectedDesign = useResultsView((s) => s.selectedDesign);
+  const customDesigns = useResultsView((s) => s.customDesigns);
   const scene = useMemo(
-    () => sceneFor(state, { envelopeKind, selectedDesign }),
-    [state, envelopeKind, selectedDesign],
+    () => sceneFor(state, { envelopeKind, selectedDesign, customDesigns }),
+    [state, envelopeKind, selectedDesign, customDesigns],
   );
   return { state, scene };
 }
