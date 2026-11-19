@@ -21,8 +21,9 @@ type TestDeck = {
 };
 type TestWindow = { __envelopeMap: TestMap; __envelopeDeck?: TestDeck; __noReload?: boolean };
 
-const SAMPLE_FRONT_SOUTH: LngLat = [100.5599408, 13.7382914];
-const SAMPLE_CENTRE: LngLat = [100.5602, 13.7386];
+/** The sample plot on Asok Montri Road (packages/engine/src/fixtures.ts). */
+const SAMPLE_FRONT_SOUTH: LngLat = [100.5621287, 13.7418313];
+const SAMPLE_CENTRE: LngLat = [100.5624, 13.7421];
 
 /** Opens the tool flat (2D), waits for the envelope layer and returns a lng/lat → page projector. */
 async function openTool(page: Page) {
@@ -87,7 +88,7 @@ test("the allowed space appears on the map as stacked slices", async ({ page }) 
   expect((await deckView(page))?.envelopeKind).toBe("highRise");
 
   await openTab(page, "Rules");
-  await expect(page.getByTestId("sum-max-height")).toHaveText("111 m");
+  await expect(page.getByTestId("sum-max-height")).toHaveText("140 m");
   await page.getByRole("radio", { name: "Low-rise (under 23 m)" }).click();
   await expect(page.getByTestId("sum-max-height")).toHaveText("23 m");
   await expect.poll(async () => (await deckView(page))?.envelopeKind).toBe("lowRise");
@@ -117,13 +118,13 @@ test("switching off the road setback widens the envelope", async ({ page }) => {
 
 test("a wider road raises the allowed height", async ({ page }) => {
   await openTool(page);
-  await page.getByLabel("Soi Sukhumvit 19 width").fill("20");
+  await page.getByLabel("Asok Montri Road width").fill("20");
   await openTab(page, "Rules");
-  await expect(page.getByTestId("sum-max-height")).not.toHaveText("111 m");
-  await expect.poll(async () => (await deckView(page))?.maxHeightM).toBeGreaterThan(111);
+  await expect(page.getByTestId("sum-max-height")).not.toHaveText("140 m");
+  await expect.poll(async () => (await deckView(page))?.maxHeightM).toBeGreaterThan(140);
 
   await openTab(page, "Plot");
-  await page.getByLabel("Soi Sukhumvit 19 width").fill("8");
+  await page.getByLabel("Asok Montri Road width").fill("8");
   await openTab(page, "Rules");
   await expect(page.getByTestId("sum-max-height")).toHaveText("23 m");
   await expect(page.getByTestId("high-rise-blocked")).toBeVisible();
@@ -184,7 +185,7 @@ test("dragging a plot corner reshapes the envelope without a reload", async ({ p
   const from = await project(SAMPLE_FRONT_SOUTH);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  for (let i = 1; i <= 8; i++) await page.mouse.move(from.x - i * 5, from.y + i * 4);
+  for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + i * 5, from.y + i * 4);
   await expect
     .poll(async () => (await deckView(page))?.groundAreaM2 ?? before)
     .not.toBeCloseTo(before, 0);
@@ -196,7 +197,7 @@ test("a road width the law cannot use is flagged, and the last valid width stays
   page,
 }) => {
   await openTool(page);
-  const width = page.getByLabel("Soi Sukhumvit 19 width");
+  const width = page.getByLabel("Asok Montri Road width");
   await width.fill("20");
   await width.fill("201");
   await expect(width).toHaveAttribute("aria-invalid", "true");
@@ -255,7 +256,7 @@ for (const viewport of [
   }) => {
     await page.setViewportSize(viewport);
     await openTool(page);
-    await page.getByLabel("Soi Sukhumvit 19 width").fill("30");
+    await page.getByLabel("Asok Montri Road width").fill("30");
     await openTab(page, "Rules");
     await page.getByLabel("Floor area bonus claimed").fill("20");
     await openTab(page, "Designs");

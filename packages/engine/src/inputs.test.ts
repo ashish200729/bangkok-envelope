@@ -33,10 +33,10 @@ describe("engineInputSchema", () => {
 
   it("rejects an edge list that does not match the vertex count", () => {
     const input = sample();
-    input.plot.edges = input.plot.edges.slice(0, 4);
+    input.plot.edges = input.plot.edges.slice(0, 3);
     expect(issues(input)).toContainEqual({
       path: "plot.edges",
-      message: "Expected one edge per vertex (5), got 4",
+      message: "Expected one edge per vertex (4), got 3",
     });
   });
 

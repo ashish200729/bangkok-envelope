@@ -57,36 +57,69 @@ async function drawPlot(page: Page, corners: LngLat[]) {
 
 const station = (page: Page) => page.getByLabel("Distance to nearest BTS/MRT station");
 
-test("the sample keeps its hand-set road and shows OSM's width as a suggestion", async ({
-  page,
-}) => {
-  await openMap(page);
-  const suggestion = page.getByTestId("road-suggestion");
-  await expect(suggestion).toHaveText(
-    /OSM suggests Soi Sukhumvit 19 · 8 m \(estimated from road type\)/,
+/** Moves the flat map to the old shophouse block on Soi Sukhumvit 19, beside a 50 m building. */
+async function goToSoi19(page: Page) {
+  await page.evaluate(() =>
+    (window as unknown as { __envelopeMap: TestMap }).__envelopeMap.jumpTo({
+      center: [100.5601, 13.7385],
+      zoom: 18,
+    }),
   );
-  await expect(page.getByLabel("Soi Sukhumvit 19 width")).toHaveValue("10");
+  await settled(page);
+}
+
+test("the sample keeps its hand-set road and finds the nearest station", async ({ page }) => {
+  await openMap(page);
+  await expect(page.getByLabel("Asok Montri Road width")).toHaveValue("17");
   await expect(page.getByTestId("road-width-source")).toHaveText("Width entered by you");
-  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/10 m/);
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/17 m/);
   await expect(page.getByTestId("input-status")).toHaveText(/ready for the rules check/);
   await expect(page.getByTestId("station-detected")).toHaveText(
-    "Asok · BTS Sukhumvit Line · 129 m",
+    /^Sukhumvit · MRT Blue Line · \d+ m$/,
   );
-  await expect(station(page)).toHaveValue("129");
+  await expect(station(page)).not.toHaveValue("");
   await expect(page.getByTestId("site-attribution")).toHaveText(
     /© OpenStreetMap contributors, ODbL · data as of \d+ \w+ 20\d\d/,
   );
+  await expect(page.getByTestId("site-clearance")).toHaveCount(0);
+});
 
-  await suggestion.getByRole("button", { name: /Apply/ }).click();
-  await expect(page.getByLabel("Soi Sukhumvit 19 width")).toHaveValue("8");
-  await expect(page.getByTestId("road-width-source")).toHaveText(
-    "Width estimated from road type — check on site",
+test("a plot drawn over buildings waits until their demolition is confirmed", async ({ page }) => {
+  await openMap(page);
+  await goToSoi19(page);
+  await drawPlot(page, [
+    [100.55995, 13.73832],
+    [100.5603, 13.73828],
+    [100.5603, 13.73875],
+    [100.56002, 13.73878],
+  ]);
+  const card = page.getByTestId("site-clearance");
+  await expect(card).toContainText(/This plot covers \d+ existing buildings?/);
+  await page.getByRole("tablist", { name: "Sections" }).getByRole("tab", { name: "Rules" }).click();
+  await expect(page.getByTestId("results-guidance")).toHaveAttribute(
+    "data-code",
+    "existing-buildings",
   );
-  await expect(suggestion).toHaveCount(0);
+  const clash = () =>
+    page.evaluate(
+      () =>
+        (
+          window as unknown as {
+            __envelopeMap: { querySourceFeatures(id: string): unknown[] };
+          }
+        ).__envelopeMap.querySourceFeatures("buildings-clash").length,
+    );
+  await expect.poll(clash).toBeGreaterThan(0);
+
+  await card.getByRole("button", { name: "Confirm demolition" }).click();
+  await expect(card).toHaveCount(0);
+  await expect(page.getByTestId("results-guidance")).toHaveCount(0);
+  await expect.poll(clash).toBe(0);
 });
 
 test("a plot drawn along Soi Sukhumvit 19 picks up the road and the station", async ({ page }) => {
   await openMap(page);
+  await goToSoi19(page);
   await drawPlot(page, [
     [100.55995, 13.73832],
     [100.5603, 13.73828],
@@ -180,5 +213,5 @@ test("a failed site request leaves the plot usable and can be retried", async ({
   await page.unroute("**/api/site/plot-context");
   await notice.getByRole("button", { name: "Retry" }).click();
   await expect(notice).toHaveCount(0);
-  await expect(page.getByTestId("road-suggestion")).toBeVisible();
+  await expect(page.getByTestId("station-detected")).toBeVisible();
 });

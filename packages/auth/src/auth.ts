@@ -4,10 +4,14 @@ import * as schema from "@envelope/db/schema";
 import { betterAuth } from "better-auth";
 import { anonymous } from "better-auth/plugins";
 import { env } from "./env";
+import { resolveAuthUrl } from "./url";
+
+const { baseURL, trustedOrigins } = resolveAuthUrl(env);
 
 export const auth = betterAuth({
   appName: "Bangkok Plot Envelope",
-  baseURL: env.BETTER_AUTH_URL,
+  baseURL,
+  trustedOrigins,
   basePath: "/api/auth",
   secret: env.BETTER_AUTH_SECRET,
   database: drizzleAdapter(db, { provider: "pg", schema }),

@@ -34,6 +34,17 @@ describe("plot store", () => {
     expect(store().selectedSide).toBe(first.id);
   });
 
+  it("asks again about demolition for every new drawing", () => {
+    store().confirmDemolition();
+    expect(store().demolitionConfirmed).toBe(true);
+    const ring = store().draft.vertices.map((v) => v.lngLat);
+    store().finishDrawing(ring);
+    expect(store().demolitionConfirmed).toBe(false);
+    expect(store().siteCheck).toBe("checking");
+    store().markSiteChecked();
+    expect(store().siteCheck).toBe("done");
+  });
+
   it("never gives two roads the same name", () => {
     const sides = store().draft.vertices.map((v) => v.id);
     for (const side of sides.slice(1)) store().addRoadForSide(side);

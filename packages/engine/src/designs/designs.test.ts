@@ -157,8 +157,10 @@ describe("designs on the sample plot", () => {
     expect(a.heightM).toBeLessThan(23);
     expect(a.floors[0]?.use).toBe("lobby");
     expect(b.heightM).toBeGreaterThanOrEqual(23);
+    // On a 17 m road a high-rise may hold at most 30,000 m² (MR 33 cl. 2), below FAR 8 here.
     expect(b.farUsed).toBeLessThanOrEqual(8 + 1e-9);
-    expect(b.farUsed).toBeGreaterThan(7.5);
+    expect(b.gfaM2).toBeLessThanOrEqual(30_000 + 1e-6);
+    expect(b.gfaM2).toBeGreaterThan(28_000);
     for (const d of sample.designs) {
       expect(d.passes).toBe(true);
       expect(d.keyCount).toBe(Math.floor((d.useAreaM2 * 0.67) / 45));

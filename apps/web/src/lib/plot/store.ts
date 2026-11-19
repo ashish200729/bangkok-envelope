@@ -33,6 +33,10 @@ type PlotState = {
    * reloads it. Edits made on the map do not bump it.
    */
   geometryRevision: number;
+  /** "checking" from a new drawing until the map reports what stands on the plot. */
+  siteCheck: "checking" | "done";
+  /** The user confirmed the buildings on this plot will be demolished (lib/plot/clearance). */
+  demolitionConfirmed: boolean;
 };
 
 type PlotActions = {
@@ -51,6 +55,9 @@ type PlotActions = {
   setHoveredSide: (side: VertexId | null) => void;
   setSelectedSide: (side: VertexId | null) => void;
   resetToSample: () => void;
+  /** The map has measured the buildings on the plot just drawn. */
+  markSiteChecked: () => void;
+  confirmDemolition: () => void;
 };
 
 export const DEFAULT_ROAD_WIDTH_M = 12;
@@ -99,6 +106,8 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
   hoveredSide: null,
   selectedSide: null,
   geometryRevision: 0,
+  siteCheck: "done",
+  demolitionConfirmed: false,
 
   applyMapGeometry: (ring) =>
     set((s) => {
@@ -122,6 +131,8 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
       roads: [],
       hoveredSide: null,
       selectedSide: null,
+      siteCheck: "checking",
+      demolitionConfirmed: false,
     })),
 
   cancelDrawing: () => set((s) => ({ mode: "edit", geometryRevision: s.geometryRevision + 1 })),
@@ -177,7 +188,12 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
       hoveredSide: null,
       selectedSide: null,
       geometryRevision: s.geometryRevision + 1,
+      siteCheck: "done",
+      demolitionConfirmed: false,
     })),
+
+  markSiteChecked: () => set((s) => (s.siteCheck === "checking" ? { siteCheck: "done" } : {})),
+  confirmDemolition: () => set({ demolitionConfirmed: true }),
 }));
 
 /** Site data (lib/site): replaces sides and roads with an OSM suggestion applied to them. */

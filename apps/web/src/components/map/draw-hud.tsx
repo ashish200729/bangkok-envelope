@@ -2,6 +2,7 @@
 
 import type { LngLat } from "@envelope/engine";
 import type { ReactNode } from "react";
+import { buildingCount, type Clearance } from "@/lib/plot/clearance";
 import { sameLngLat } from "@/lib/plot/draft";
 import { formatM, formatM2, formatThaiLandArea } from "@/lib/plot/format";
 import { areaM2, interiorAnglesDeg, perimeterM } from "@/lib/plot/geometry";
@@ -24,6 +25,10 @@ function Key({ children }: { children: ReactNode }) {
   );
 }
 
+export function buildingsText(n: number) {
+  return `${n} existing ${n === 1 ? "building" : "buildings"}`;
+}
+
 function corners(n: number) {
   return `${n} ${n === 1 ? "corner" : "corners"}`;
 }
@@ -39,7 +44,14 @@ function announcement(placed: readonly LngLat[]) {
 }
 
 /** Figures and keyboard hints shown over the map while a plot is drawn. */
-export function DrawHud({ progress }: { progress: DrawProgress }) {
+export function DrawHud({
+  progress,
+  covering,
+}: {
+  progress: DrawProgress;
+  /** Existing buildings under the outline so far, in red on the map. */
+  covering: Clearance | null;
+}) {
   const { placed, cursor } = progress;
   const n = placed.length;
   const outline = drawOutline(progress);
@@ -74,6 +86,13 @@ export function DrawHud({ progress }: { progress: DrawProgress }) {
             </Figure>
           )}
         </div>
+      )}
+      {covering && n >= 2 && (
+        <p className="flex items-center gap-1.5 text-fail text-xs" data-testid="draw-covering">
+          <span aria-hidden className="size-2 rounded-[2px] bg-fail" />
+          Covers {buildingsText(buildingCount(covering))} ({formatM2(covering.groundM2)} of ground).
+          You will be asked to confirm they are demolished.
+        </p>
       )}
       {sharp && (
         <p aria-hidden className="text-warn text-xs">

@@ -39,6 +39,17 @@ pnpm db:seed                           # loads the committed OpenStreetMap snaps
 pnpm dev                               # http://localhost:3100
 ```
 
+## Deploy to Vercel
+
+1. Import the GitHub repository in Vercel and set **Root Directory** to `apps/web`. Vercel detects Next.js and the pnpm workspace; no build settings are needed.
+2. In **Settings → Environment Variables**, add the two required variables for Production and Preview:
+   - `DATABASE_URL`: the Neon pooled connection string (`sslmode=verify-full`).
+   - `BETTER_AUTH_SECRET`: 32+ random characters, a different one per environment.
+3. Deploy. Nothing else is needed:
+   - **App URL:** no URL variable. Auth uses the production domain in production and the branch URL on previews, from Vercel's system variables (`packages/auth/src/url.ts`). Set `BETTER_AUTH_URL` only for a custom domain.
+   - **Region:** functions run in Singapore (`sin1`, `apps/web/vercel.json`), next to the Neon database in `aws-ap-southeast-1`.
+   - **Database:** run `pnpm db:migrate` and `pnpm db:seed` once against the production database, from your machine, before the first deploy.
+
 ## Scripts
 
 | Command                         | What it does                                                    |

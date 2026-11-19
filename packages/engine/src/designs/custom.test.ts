@@ -249,7 +249,13 @@ describe("uses in an edited design", () => {
   });
 
   it("the plan's office cap applies to office floors of a condo", () => {
-    const input = { ...SAMPLE_INPUT, zone: "Y8" as const, site: { stationDistanceM: null } };
+    // A 10 m road keeps the ย.8 office cap at 1,000 m² (a 16 m road would lift it to 5,000 m²).
+    const input = {
+      ...SAMPLE_INPUT,
+      zone: "Y8" as const,
+      roads: SAMPLE_INPUT.roads.map((road) => ({ ...road, widthM: 10 })),
+      site: { stationDistanceM: null },
+    };
     const ownSpec = success(evaluate(input)).designs.find((d) => d.id === "podium-tower")?.spec;
     if (!ownSpec) throw new Error("no tower");
     const i0 = ownSpec.floors.findIndex((f) => f.use === "residential");

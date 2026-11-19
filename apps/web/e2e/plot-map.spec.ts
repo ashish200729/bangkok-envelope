@@ -55,24 +55,34 @@ async function drag(page: Page, from: { x: number; y: number }, dx: number, dy: 
   await page.mouse.up();
 }
 
-const SAMPLE_FRONT_SOUTH: LngLat = [100.5599408, 13.7382914];
-const SAMPLE_FRONT_NORTH: LngLat = [100.5600231, 13.7388977];
+/** The sample plot's road side, on Asok Montri Road (packages/engine/src/fixtures.ts). */
+const SAMPLE_FRONT_NORTH: LngLat = [100.5621732, 13.7424662];
+const SAMPLE_FRONT_SOUTH: LngLat = [100.5621287, 13.7418313];
+const SAMPLE_AREA = "4,062 m²";
+const ROAD = /Asok Montri Road/;
+/** A plot drawn inside the sample, on open land, so no demolition question comes up. */
+const OPEN: LngLat[] = [
+  [100.5622, 13.7419],
+  [100.5625, 13.7419],
+  [100.5625, 13.7422],
+  [100.5622, 13.7422],
+];
 const sides = (page: Page) => page.getByTestId("sides").locator("li");
 const status = (page: Page) => page.getByTestId("input-status");
 
-test("opens on the sample plot facing Soi Sukhumvit 19", async ({ page }) => {
+test("opens on the sample plot facing Asok Montri Road", async ({ page }) => {
   await openMap(page);
-  await expect(page.getByTestId("plot-area")).toHaveText("3,490 m²");
-  await expect(sides(page)).toHaveCount(5);
-  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
+  await expect(page.getByTestId("plot-area")).toHaveText(SAMPLE_AREA);
+  await expect(sides(page)).toHaveCount(4);
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(ROAD);
   await expect(status(page)).toHaveText(/ready for the rules check/);
 });
 
 test("dragging a corner updates the area live", async ({ page }) => {
   const project = await openMap(page);
-  await drag(page, await project(SAMPLE_FRONT_SOUTH), -40, 30);
-  await expect(page.getByTestId("plot-area")).not.toHaveText("3,490 m²");
-  await expect(sides(page)).toHaveCount(5);
+  await drag(page, await project(SAMPLE_FRONT_SOUTH), 30, 30);
+  await expect(page.getByTestId("plot-area")).not.toHaveText(SAMPLE_AREA);
+  await expect(sides(page)).toHaveCount(4);
 });
 
 test("inserting a corner on the road side keeps both halves on the road", async ({ page }) => {
@@ -81,21 +91,16 @@ test("inserting a corner on the road side keeps both halves on the road", async 
     (SAMPLE_FRONT_SOUTH[0] + SAMPLE_FRONT_NORTH[0]) / 2,
     (SAMPLE_FRONT_SOUTH[1] + SAMPLE_FRONT_NORTH[1]) / 2,
   ]);
-  await drag(page, mid, -30, 0);
-  await expect(sides(page)).toHaveCount(6);
-  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
-  await expect(page.getByRole("combobox", { name: "Side 2 faces" })).toHaveText(/Soi Sukhumvit 19/);
+  await drag(page, mid, 30, 0);
+  await expect(sides(page)).toHaveCount(5);
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(ROAD);
+  await expect(page.getByRole("combobox", { name: "Side 2 faces" })).toHaveText(ROAD);
 });
 
 test("a new plot can be drawn, then a road side marked", async ({ page }) => {
   const project = await openMap(page);
   await page.getByRole("button", { name: "Draw a new plot" }).click();
-  const corners: LngLat[] = [
-    [100.5599, 13.7383],
-    [100.5602, 13.7383],
-    [100.5602, 13.7386],
-    [100.5599, 13.7386],
-  ];
+  const corners = OPEN;
   for (const c of corners) {
     const pt = await project(c);
     await page.mouse.click(pt.x, pt.y);
@@ -105,8 +110,8 @@ test("a new plot can be drawn, then a road side marked", async ({ page }) => {
   await page.mouse.click(first.x, first.y);
   await expect(sides(page)).toHaveCount(4);
 
-  // This plot lies along Soi Sukhumvit 19, so site data may mark a side automatically; clear
-  // every side to test marking by hand.
+  // Site data may mark a side as facing a road automatically; clear every side to test marking
+  // by hand.
   await siteData;
   for (let i = 1; i <= 4; i++) {
     const side = page.getByRole("combobox", { name: `Side ${i} faces` });
@@ -126,10 +131,10 @@ test("a self-crossing outline is refused", async ({ page }) => {
   const project = await openMap(page);
   await page.getByRole("button", { name: "Draw a new plot" }).click();
   const bowTie: LngLat[] = [
-    [100.5599, 13.7383],
-    [100.5602, 13.7386],
-    [100.5602, 13.7383],
-    [100.5599, 13.7386],
+    [100.5622, 13.7419],
+    [100.5625, 13.7422],
+    [100.5625, 13.7419],
+    [100.5622, 13.7422],
   ];
   for (const c of bowTie) {
     const pt = await project(c);
@@ -146,30 +151,30 @@ test("Esc cancels drawing and restores the plot", async ({ page }) => {
   await page.getByRole("button", { name: "Draw a new plot" }).click();
   await expect(page.getByText("Click to place each corner")).toBeVisible();
   await page.keyboard.press("Escape");
-  await expect(sides(page)).toHaveCount(5);
-  await expect(page.getByTestId("plot-area")).toHaveText("3,490 m²");
+  await expect(sides(page)).toHaveCount(4);
+  await expect(page.getByTestId("plot-area")).toHaveText(SAMPLE_AREA);
 });
 
 test("right-clicking a corner removes it", async ({ page }) => {
   const project = await openMap(page);
-  const back: LngLat = [100.5604544, 13.7384977];
+  const back: LngLat = [100.5626967, 13.7424203];
   const pt = await project(back);
   await page.mouse.click(pt.x, pt.y, { button: "right" });
-  await expect(sides(page)).toHaveCount(4);
-  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
+  await expect(sides(page)).toHaveCount(3);
+  await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(ROAD);
 });
 
 test("a corner placed near the first one does not close a narrow plot early", async ({ page }) => {
   const project = await openMap(page);
   await page.getByRole("button", { name: "Draw a new plot" }).click();
-  const first = await project([100.5599, 13.7383]);
+  const first = await project([100.5622, 13.7419]);
   // A 6 m wide plot: its last corner lands about 20 px from the first at this zoom.
-  const last = await project([100.5599, 13.738355]);
+  const last = await project([100.5622, 13.741955]);
   expect(Math.hypot(last.x - first.x, last.y - first.y)).toBeLessThan(40);
   const corners = [
     first,
-    await project([100.5604, 13.7383]),
-    await project([100.5604, 13.738355]),
+    await project([100.5626, 13.7419]),
+    await project([100.5626, 13.741955]),
     last,
   ];
   for (const pt of corners) await page.mouse.click(pt.x, pt.y);
@@ -180,11 +185,7 @@ test("a corner placed near the first one does not close a narrow plot early", as
 test("Enter finishes a plot, as the drawing hints say", async ({ page }) => {
   const project = await openMap(page);
   await page.getByRole("button", { name: "Draw a new plot" }).click();
-  for (const c of [
-    [100.5599, 13.7383],
-    [100.5602, 13.7383],
-    [100.5602, 13.7386],
-  ] as LngLat[]) {
+  for (const c of OPEN.slice(0, 3)) {
     const pt = await project(c);
     await page.mouse.click(pt.x, pt.y);
   }
@@ -216,16 +217,12 @@ test("measurements follow the pointer while drawing, and Backspace removes a cor
   const project = await openMap(page);
   await page.getByRole("button", { name: "Draw a new plot" }).click();
   const hud = page.getByTestId("draw-hud");
-  const corners: LngLat[] = [
-    [100.5599, 13.7383],
-    [100.5602, 13.7383],
-    [100.5602, 13.7386],
-  ];
+  const corners = OPEN.slice(0, 3);
   for (const c of corners.slice(0, 2)) {
     const pt = await project(c);
     await page.mouse.click(pt.x, pt.y);
   }
-  const cursor = await project([100.56005, 13.7387]);
+  const cursor = await project([100.56235, 13.7423]);
   await page.mouse.move(cursor.x, cursor.y, { steps: 4 });
 
   await expect.poll(() => labels(page, "plot-measure-length")).toContain("32.4 m");
@@ -251,13 +248,13 @@ test("dragging a corner shows its two sides and its angle", async ({ page }) => 
   const from = await project(SAMPLE_FRONT_SOUTH);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  for (let i = 1; i <= 6; i++) await page.mouse.move(from.x - i * 5, from.y + i * 4);
+  for (let i = 1; i <= 6; i++) await page.mouse.move(from.x + i * 5, from.y + i * 4);
 
   await expect
     .poll(() => labels(page, "plot-sides-label-active"))
     .toEqual(
       expect.arrayContaining([
-        expect.stringMatching(/^Soi Sukhumvit 19 · 10 m road · \d+\.\d m$/),
+        expect.stringMatching(/^Asok Montri Road · 17 m road · \d+\.\d m$/),
         expect.stringMatching(/^\d · \d+\.\d m$/),
       ]),
     );
@@ -265,5 +262,5 @@ test("dragging a corner shows its two sides and its angle", async ({ page }) => 
     .poll(() => labels(page, "plot-measure-live"))
     .toEqual([expect.stringMatching(/^\d+°/)]);
   await page.mouse.up();
-  await expect(page.getByTestId("plot-perimeter")).toContainText("5 sides");
+  await expect(page.getByTestId("plot-perimeter")).toContainText("4 sides");
 });

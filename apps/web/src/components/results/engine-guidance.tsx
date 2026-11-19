@@ -5,9 +5,12 @@ import { Button } from "@envelope/ui/components/button";
 import { Skeleton } from "@envelope/ui/components/skeleton";
 import { CircleAlert, PencilLine } from "lucide-react";
 import type { ReactNode } from "react";
+import { buildingsText } from "@/components/map/draw-hud";
 import type { EngineState } from "@/lib/engine/store";
 import { latestComputed } from "@/lib/engine/store";
+import { buildingCount } from "@/lib/plot/clearance";
 import { usePlotStore } from "@/lib/plot/store";
+import { useSiteHold } from "@/lib/plot/use-site-hold";
 import { useResultsView } from "@/lib/results/view";
 
 const GUIDANCE: Record<EngineErrorCode, { title: string; fix: string }> = {
@@ -33,6 +36,7 @@ const GUIDANCE: Record<EngineErrorCode, { title: string; fix: string }> = {
 export function EngineGuidance({ state }: { state: EngineState }) {
   const mode = usePlotStore((s) => s.mode);
   const openPlot = () => useResultsView.getState().setSection("plot");
+  const hold = useSiteHold();
   const computed = latestComputed(state);
 
   if (mode === "draw") {
@@ -41,6 +45,24 @@ export function EngineGuidance({ state }: { state: EngineState }) {
         title="Drawing a new plot"
         text="Finish the outline on the map (click the first corner to close it) to see the rules and the allowed space."
       />
+    );
+  }
+  if (hold.held && hold.reason === "buildings") {
+    const count = buildingCount(hold.clearance);
+    return (
+      <Note
+        title={`This plot covers ${buildingsText(count)}`}
+        text={`The rules assume the site is cleared. Confirm on the map that ${count === 1 ? "it" : "they"} will be demolished, or redraw the plot on open land.`}
+        code="existing-buildings"
+      >
+        <Button
+          size="sm"
+          className="w-fit"
+          onClick={() => usePlotStore.getState().confirmDemolition()}
+        >
+          Confirm demolition
+        </Button>
+      </Note>
     );
   }
   if (state.status === "invalid") {
@@ -55,7 +77,7 @@ export function EngineGuidance({ state }: { state: EngineState }) {
       </Note>
     );
   }
-  if (!computed) {
+  if (!computed || hold.held) {
     return (
       <div className="grid gap-3" data-testid="results-loading" aria-busy="true">
         <p className="text-muted-foreground text-sm">Checking the rules for this plot…</p>

@@ -17,7 +17,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { type SceneHover, SceneTooltip } from "@/components/results/scene-tooltip";
 import { startEngine, useEngineStore } from "@/lib/engine/store";
+import { type Clearance, clearanceFor } from "@/lib/plot/clearance";
 import { usePlotStore } from "@/lib/plot/store";
+import { currentSiteHold, useSiteHold } from "@/lib/plot/use-site-hold";
 import { sceneFor } from "@/lib/results/scene";
 import { useResultsView } from "@/lib/results/view";
 import { useAsBuilt } from "@/lib/scene/as-built";
@@ -29,9 +31,10 @@ import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
 import { createSceneLayers, EMPTY_SCENE, type SceneLayersView } from "./envelope-layers";
 import { MapLayers } from "./map-chips";
-import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
+import { createMeasureLayers, type DrawProgress, drawOutline, NO_PROGRESS } from "./measure-layers";
 import { SceneControls } from "./scene-controls";
 import { createSideLayers } from "./side-layers";
+import { SiteClearanceCard } from "./site-clearance";
 import { createStudyAreaLayer } from "./study-area-layer";
 
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString());
@@ -60,9 +63,15 @@ type MapStatus =
 /** After this long without a map style, say so: the tile service is external. */
 const SLOW_MAP_MS = 12_000;
 
+/** The scene to draw: none while the plot waits for its demolition to be confirmed. */
+function shownScene() {
+  if (currentSiteHold().held) return null;
+  return sceneFor(useEngineStore.getState().state, useResultsView.getState());
+}
+
 /** How tall the shown scene is: the selected design, or the envelope (capped when unlimited). */
 function sceneHeightM(): number {
-  const scene = sceneFor(useEngineStore.getState().state, useResultsView.getState());
+  const scene = shownScene();
   if (!scene) return 0;
   const designM = scene.design?.heightM ?? 0;
   const envelopeM = scene.envelope.envelope.maxHeightM;
@@ -142,10 +151,12 @@ export default function PlotMap() {
   const paletteRef = useRef<BasemapPalette>("light");
   const renderSceneRef = useRef<(() => void) | null>(null);
   const [progress, setProgress] = useState<DrawProgress>(NO_PROGRESS);
+  const [covering, setCovering] = useState<Clearance | null>(null);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
   const [hover, setHover] = useState<SceneHover | null>(null);
   const mode = usePlotStore((s) => s.mode);
+  const hold = useSiteHold();
   const night = useSceneView((s) => s.night);
   const { resolvedTheme } = useTheme();
   const palette: BasemapPalette = night || resolvedTheme === "dark" ? "dark" : "light";
@@ -204,7 +215,21 @@ export default function PlotMap() {
         onSelect: (side) => store.getState().setSelectedSide(side),
       });
       const measure = createMeasureLayers(map);
-      const hider = createBuildingHider(map);
+      const hider = createBuildingHider(map, {
+        onMeasured: () => store.getState().markSiteChecked(),
+        onPreview: (buildings) => {
+          const clearance = clearanceFor(buildings);
+          setCovering(clearance.buildings.length > 0 ? clearance : null);
+        },
+      });
+      /** Red buildings: under the outline while drawing, or on a plot awaiting confirmation. */
+      const syncClash = () => {
+        if (store.getState().mode === "draw") hider.setClash("preview");
+        else {
+          const hold = currentSiteHold();
+          hider.setClash(hold.held && hold.reason === "buildings" ? "plot" : "none");
+        }
+      };
       let draggedCorner: number | null = null;
       const draw = createDrawController(map, {
         onEdit: (ring, dragged) => {
@@ -222,6 +247,7 @@ export default function PlotMap() {
           if (store.getState().mode !== "draw") return;
           measure.showDrawing(next);
           setProgress(next);
+          hider.preview(drawOutline(next));
         },
         onDrawn: (ring) => {
           store.getState().finishDrawing(ring);
@@ -242,7 +268,8 @@ export default function PlotMap() {
       let framed: { design: string | null } | null = null;
       const renderScene = () => {
         const results = useResultsView.getState();
-        const ready = sceneFor(useEngineStore.getState().state, results) !== null;
+        const next = shownScene();
+        const ready = next !== null;
         if (
           ready &&
           store.getState().mode === "edit" &&
@@ -256,7 +283,6 @@ export default function PlotMap() {
           );
         }
         const sceneView = useSceneView.getState();
-        const next = sceneFor(useEngineStore.getState().state, results);
         const view: SceneLayersView =
           next && store.getState().mode === "edit"
             ? {
@@ -322,7 +348,17 @@ export default function PlotMap() {
         if (s.mode !== prev.mode) {
           measure.showDrawing(null);
           setProgress(NO_PROGRESS);
+          setCovering(null);
+          hider.preview(null);
           draw.setMode(s.mode);
+        }
+        if (
+          s.mode !== prev.mode ||
+          s.siteCheck !== prev.siteCheck ||
+          s.demolitionConfirmed !== prev.demolitionConfirmed
+        ) {
+          syncClash();
+          renderScene();
         }
         if (
           s.draft !== prev.draft ||
@@ -347,6 +383,10 @@ export default function PlotMap() {
         useSceneView.subscribe(renderScene),
         useSceneView.subscribe((s, prev) => {
           if (s.layers.asBuilt !== prev.layers.asBuilt) hider.setAsBuiltVisible(s.layers.asBuilt);
+        }),
+        useAsBuilt.subscribe(() => {
+          syncClash();
+          renderScene();
         }),
         () => scene.destroy(),
         () => map.off("rotate", render),
@@ -477,7 +517,10 @@ export default function PlotMap() {
         </div>
       )}
 
-      {mode === "draw" && <DrawHud progress={progress} />}
+      {mode === "draw" && <DrawHud progress={progress} covering={covering} />}
+      {status.state === "ready" && mode === "edit" && hold.held && hold.reason === "buildings" && (
+        <SiteClearanceCard clearance={hold.clearance} />
+      )}
       {hover && mode === "edit" && <SceneTooltip hover={hover} />}
 
       {(status.state === "loading" || status.state === "slow") && (

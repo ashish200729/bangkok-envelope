@@ -25,7 +25,7 @@ type TestWindow = {
   __asBuilt: { getState(): { buildings: unknown[]; footprintM2: number } };
 };
 
-const SAMPLE_CENTRE: LngLat = [100.5602, 13.7386];
+const SAMPLE_CENTRE: LngLat = [100.5624, 13.7421];
 
 async function openWithDesign(page: Page) {
   await page.goto("/");
@@ -142,21 +142,14 @@ test("the layers menu switches the setbacks, the envelope and the building there
   await menu.getByRole("switch", { name: /Allowed envelope/ }).click();
   await expect.poll(() => layerIds(page)).toContain("envelope");
 
-  await expect
-    .poll(() =>
-      page.evaluate(() => (window as unknown as TestWindow).__asBuilt.getState().buildings.length),
-    )
-    .toBeGreaterThan(0);
-  const asBuilt = () =>
-    page.evaluate(() =>
-      (window as unknown as TestWindow).__envelopeMap.getLayoutProperty(
-        "as-built-3d",
-        "visibility",
-      ),
-    );
-  expect(await asBuilt()).toBe("none");
-  await menu.getByRole("switch", { name: /Existing building/ }).click();
-  await expect.poll(asBuilt).toBe("visible");
+  // The sample plot is open land, so there is no existing building to show, and the menu says why.
+  expect(
+    await page.evaluate(
+      () => (window as unknown as TestWindow).__asBuilt.getState().buildings.length,
+    ),
+  ).toBe(0);
+  await expect(menu.getByRole("switch", { name: /Existing building/ })).toBeDisabled();
+  await expect(menu).toContainText("No mapped building on this plot");
 });
 
 test("the basemap hides shop and café icons but keeps rail stations", async ({ page }) => {
