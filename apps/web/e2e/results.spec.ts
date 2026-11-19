@@ -45,6 +45,13 @@ async function openTool(page: Page) {
     { timeout: 30_000 },
   );
   await expect.poll(() => layerIds(page)).toContain("envelope");
+  // The camera refits once a scheme is selected; positions on screen are stable only after that.
+  await expect.poll(async () => (await deckView(page))?.designId ?? null).not.toBeNull();
+  await page.waitForFunction(
+    () => !(window as unknown as TestWindow).__envelopeMap.isMoving(),
+    null,
+    { timeout: 30_000 },
+  );
   await page.evaluate(() => {
     (window as unknown as TestWindow).__noReload = true;
   });
@@ -185,7 +192,9 @@ test("dragging a plot corner reshapes the envelope without a reload", async ({ p
   const from = await project(SAMPLE_FRONT_SOUTH);
   await page.mouse.move(from.x, from.y);
   await page.mouse.down();
-  for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + i * 5, from.y + i * 4);
+  // Inward (north-east). Outward, the corner would reach the neighbour's building and the plot
+  // would wait for its demolition to be confirmed (decision 59).
+  for (let i = 1; i <= 8; i++) await page.mouse.move(from.x + i * 5, from.y - i * 4);
   await expect
     .poll(async () => (await deckView(page))?.groundAreaM2 ?? before)
     .not.toBeCloseTo(before, 0);

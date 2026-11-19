@@ -74,7 +74,7 @@ export const EMPTY_SCENE: SceneLayersView = {
   input: null,
   selectedFloor: null,
   breaches: [],
-  toggles: { setback: true, heightLimit: true, asBuilt: false },
+  toggles: { setback: true, heightLimit: true, asBuilt: false, seeThrough: false },
   palette: "light",
   timestampMs: 0,
   night: false,

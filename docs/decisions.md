@@ -327,3 +327,15 @@ A plot drawn over buildings that stand there today used to be checked as if the 
 ## 60. Deploying needs two variables; the URL comes from Vercel
 
 `BETTER_AUTH_URL` was required and `NEXT_PUBLIC_APP_URL` was required but read nowhere. Every Vercel preview has its own URL, so a fixed origin breaks sign-in on previews. `resolveAuthUrl` (`packages/auth/src/url.ts`) takes an explicit `BETTER_AUTH_URL` first. Otherwise it uses `VERCEL_PROJECT_PRODUCTION_URL` in production, and the branch URL (or deployment URL) on previews. Locally it falls back to `http://localhost:3100`. Every Vercel hostname of the deployment is a trusted origin. The browser client already calls `/api/auth` on its own origin, so `NEXT_PUBLIC_APP_URL` is removed. The Vercel system variables are pass-through in Turbo (`globalPassThroughEnv`), so they reach the build without changing its cache key. Functions run in `sin1` (`apps/web/vercel.json`), next to the Neon database in Singapore. Without that, every query would cross the Pacific from the default `iad1`.
+
+## 61. The camera finds a clear view, orbits 360°, and can see through neighbours
+
+A fixed bearing (120°) was chosen for the old sample plot and often looked through a tower at other plots. Three things now keep the plot in view:
+
+- **Clear view.** When a plot first appears, is drawn, is reset, or Reset view or 3D is pressed, `clearestView` (`lib/scene/clear-view.ts`, pure, tested) scores every bearing in 15° steps at pitches 55°, 45° and 35°. The input is the extruded basemap buildings within about 300 m (`components/map/neighbours.ts`). A building between the camera and the plot counts by how far it rises above the line of sight, times its width. The usual 55° and the current bearing win ties, and the camera turns only when another angle is clearly clearer. The angle is chosen once per plot (keyed by its first corner's id, which survives drags), so a user's own rotation is never undone by an edit. Neighbours load tile by tile, so the first plot gets its angle when the map first goes idle, unless the user has already moved the camera.
+- **Turn and orbit.** Buttons at the bottom right turn the view 45° either way, and Orbit spins slowly around the plot (a full turn in about 40 s). Orbit stops on any pointer, wheel or key input, and when drawing starts. With reduced motion, orbit is off and the step buttons remain.
+- **See-through neighbours.** An option in the Layers menu fades the surrounding buildings (`building-3d` and `buildings-restored`) to 22% opacity. They stay as context for the real site, and the setting survives a theme switch.
+
+## 62. No time-of-day picker
+
+The sun picker (date, hour slider, presets) was removed: it added a control and a popover, and the figures don't depend on it. Daylight is a fixed Bangkok afternoon (`DAYLIGHT_HOUR` 15:00, today's date) with the sun's real position, so shadows still read the massing. Night view stays, as one button.

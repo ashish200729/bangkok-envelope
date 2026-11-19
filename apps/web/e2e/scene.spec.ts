@@ -18,6 +18,8 @@ type TestMap = {
   getLayer(layer: string): unknown;
   getStyle(): { layers: { id: string }[] };
   querySourceFeatures(source: string): unknown[];
+  getBearing(): number;
+  getPaintProperty(layer: string, name: string): unknown;
 };
 type TestWindow = {
   __envelopeMap: TestMap;
@@ -90,21 +92,11 @@ test("a design is drawn as massing with floor lines, a roof plant room and trees
   expect(byId.get("envelope")).toBeGreaterThan(0);
 });
 
-test("the sun presets move the light, and night lights the windows", async ({ page }) => {
+test("daylight is a fixed afternoon sun, and night lights the windows", async ({ page }) => {
   await openWithDesign(page);
-  const before = await view(page);
-  await page.getByRole("button", { name: /Sun position/ }).click();
-  await page.getByRole("button", { name: "9:00" }).click();
-  await expect(page.getByTestId("sun-hour")).toHaveText("09:00");
-  await expect
-    .poll(async () => (await view(page)).sun.timestampMs)
-    .not.toBe(before.sun.timestampMs);
-  const morning = await view(page);
-  // Morning sun in the east: its light travels west.
-  expect(morning.sun.direction?.[0]).toBeLessThan(0);
-  await page.getByRole("button", { name: "16:00" }).click();
-  await expect.poll(async () => (await view(page)).sun.direction?.[0] ?? 0).toBeGreaterThan(0);
-  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: /Sun position/ })).toHaveCount(0);
+  // An afternoon sun stands in the west: its light travels east.
+  expect((await view(page)).sun.direction?.[0]).toBeGreaterThan(0);
 
   await page.getByRole("button", { name: "Night view" }).click();
   await expect.poll(async () => (await view(page)).night).toBe(true);
@@ -150,6 +142,49 @@ test("the layers menu switches the setbacks, the envelope and the building there
   ).toBe(0);
   await expect(menu.getByRole("switch", { name: /Existing building/ })).toBeDisabled();
   await expect(menu).toContainText("No mapped building on this plot");
+});
+
+test("the view turns, orbits 360° and can see through the neighbours", async ({ page }) => {
+  await openWithDesign(page);
+  const bearing = () =>
+    page.evaluate(() => {
+      const b = (window as unknown as TestWindow).__envelopeMap.getBearing();
+      return ((b % 360) + 360) % 360;
+    });
+  const controls = page.getByTestId("orbit-controls");
+  await expect(controls).toBeVisible();
+  // Back to 3D, at the plot's clear view, before turning.
+  await page.getByRole("button", { name: "Switch to a 3D view" }).click();
+  await page.waitForFunction(() => {
+    const map = (window as unknown as TestWindow).__envelopeMap;
+    return map.getPitch() > 0 && !map.isMoving();
+  });
+  const start = await bearing();
+  await controls.getByRole("button", { name: "Turn the view right" }).click();
+  await expect.poll(bearing).toBeCloseTo((start + 45) % 360, 0);
+
+  const before = await bearing();
+  await controls.getByRole("button", { name: "Orbit 360° around the plot" }).click();
+  await expect.poll(bearing, { timeout: 5_000 }).not.toBeCloseTo(before, 0);
+  await controls.getByRole("button", { name: "Stop orbiting" }).click();
+  const stopped = await bearing();
+  await page.waitForTimeout(400);
+  expect(await bearing()).toBeCloseTo(stopped, 1);
+
+  const opacity = () =>
+    page.evaluate(() =>
+      (window as unknown as TestWindow).__envelopeMap.getPaintProperty(
+        "building-3d",
+        "fill-extrusion-opacity",
+      ),
+    );
+  const solid = await opacity();
+  await page.getByRole("button", { name: "Map layers" }).click();
+  await page
+    .getByTestId("map-layers")
+    .getByRole("switch", { name: /See-through/ })
+    .click();
+  await expect.poll(opacity).toBeLessThan(Number(solid));
 });
 
 test("the basemap hides shop and café icons but keeps rail stations", async ({ page }) => {

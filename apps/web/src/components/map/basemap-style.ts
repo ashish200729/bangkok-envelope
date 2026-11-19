@@ -111,10 +111,10 @@ function paintFor(id: string, type: string, sourceLayer: string | undefined, c: 
       ["fill-outline-color", c.buildingOutline],
     ];
   }
-  if (id === "building-3d" || id === "buildings-restored") {
+  if (NEIGHBOUR_LAYERS.includes(id)) {
     return [
       ["fill-extrusion-color", c.building3d],
-      ["fill-extrusion-opacity", 0.92],
+      ["fill-extrusion-opacity", neighbourOpacity],
     ];
   }
   if (sourceLayer === "transportation" && type === "line") {
@@ -142,10 +142,25 @@ function paintFor(id: string, type: string, sourceLayer: string | undefined, c: 
   return [];
 }
 
+/** The extruded neighbours: the basemap's own and those the building hider draws again. */
+const NEIGHBOUR_LAYERS: readonly string[] = ["building-3d", "buildings-restored"];
+const SOLID_OPACITY = 0.92;
+/** See-through neighbours: light enough to read the plot behind them, still there as context. */
+const SEE_THROUGH_OPACITY = 0.22;
+let neighbourOpacity = SOLID_OPACITY;
+
+/** Fades the surrounding buildings so a plot hidden behind towers can be seen. */
+export function setNeighboursSeeThrough(map: MapLibreMap, seeThrough: boolean) {
+  neighbourOpacity = seeThrough ? SEE_THROUGH_OPACITY : SOLID_OPACITY;
+  for (const id of NEIGHBOUR_LAYERS) {
+    if (map.getLayer(id)) map.setPaintProperty(id, "fill-extrusion-opacity", neighbourOpacity);
+  }
+}
+
 /**
  * Restyles the basemap in place: hides POI clutter, keeps rail stations, road and district names,
  * and recolours every layer for the palette. Building heights are untouched. Safe to call again
- * to switch palettes.
+ * to switch palettes; the neighbours keep their see-through setting.
  */
 export function applyBasemapStyle(map: MapLibreMap, palette: BasemapPalette) {
   const colors = BASEMAP_COLORS[palette];

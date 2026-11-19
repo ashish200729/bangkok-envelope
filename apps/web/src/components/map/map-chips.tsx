@@ -12,6 +12,11 @@ const TOGGLES: { key: keyof SceneToggles; label: string; hint: string }[] = [
   { key: "heightLimit", label: "Allowed envelope", hint: "The space the rules let you fill" },
   { key: "setback", label: "Setbacks", hint: "The strip kept clear along each road" },
   { key: "asBuilt", label: "Existing building", hint: "What stands on the plot today" },
+  {
+    key: "seeThrough",
+    label: "See-through neighbours",
+    hint: "Fade the buildings around the plot",
+  },
 ];
 
 /** What the map shows, in one menu, and a way back to the starting view. */

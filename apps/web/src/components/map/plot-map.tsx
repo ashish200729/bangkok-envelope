@@ -3,7 +3,7 @@
 import { ENVELOPE_CEILING_M, type LngLat } from "@envelope/engine";
 import { Button } from "@envelope/ui/components/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@envelope/ui/components/tooltip";
-import { Box, Focus, Square } from "lucide-react";
+import { Box, Focus, Orbit, RotateCcwSquare, RotateCwSquare, Square } from "lucide-react";
 import {
   LngLatBounds,
   Map as MapLibreMap,
@@ -23,15 +23,17 @@ import { currentSiteHold, useSiteHold } from "@/lib/plot/use-site-hold";
 import { sceneFor } from "@/lib/results/scene";
 import { useResultsView } from "@/lib/results/view";
 import { useAsBuilt } from "@/lib/scene/as-built";
+import type { ViewAngle } from "@/lib/scene/clear-view";
 import { sceneTimestamp, useSceneView } from "@/lib/scene/view";
 import { useStudio } from "@/lib/studio/store";
-import { applyBasemapStyle, type BasemapPalette } from "./basemap-style";
+import { applyBasemapStyle, type BasemapPalette, setNeighboursSeeThrough } from "./basemap-style";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
 import { createSceneLayers, EMPTY_SCENE, type SceneLayersView } from "./envelope-layers";
 import { MapLayers } from "./map-chips";
 import { createMeasureLayers, type DrawProgress, drawOutline, NO_PROGRESS } from "./measure-layers";
+import { clearViewOf } from "./neighbours";
 import { SceneControls } from "./scene-controls";
 import { createSideLayers } from "./side-layers";
 import { SiteClearanceCard } from "./site-clearance";
@@ -41,11 +43,24 @@ setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const PITCH_3D = 55;
-// Looks at the sample plot from across Soi 19; from the south a 177 m neighbour hides the envelope.
+/** The starting bearing; each plot then turns to its clearest view (lib/scene/clear-view.ts). */
 const BEARING_3D = 120;
+const PREFERRED_VIEW: ViewAngle = { pitch: PITCH_3D, bearing: BEARING_3D };
+/** Orbit speed: a full turn in about 40 s. */
+const ORBIT_DEG_PER_S = 9;
+/** One press of the turn buttons. */
+const TURN_STEP_DEG = 45;
 const EMPTY_IMAGE = { width: 1, height: 1, data: new Uint8Array(4) };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+const plotVertices = () => usePlotStore.getState().draft.vertices.map((v) => v.lngLat);
+
+/** The clearest angle onto the plot from the buildings around it (lib/scene/clear-view.ts). */
+function clearAngle(map: MapLibreMap): ViewAngle {
+  const { bearing, pitch } = clearViewOf(map, plotVertices(), PREFERRED_VIEW);
+  return { bearing, pitch };
+}
 
 function isTyping(target: EventTarget | null) {
   return (
@@ -154,6 +169,9 @@ export default function PlotMap() {
   const [covering, setCovering] = useState<Clearance | null>(null);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
+  const [orbiting, setOrbiting] = useState(false);
+  const [reducedMotionOn, setReducedMotionOn] = useState(false);
+  useEffect(() => setReducedMotionOn(reducedMotion()), []);
   const [hover, setHover] = useState<SceneHover | null>(null);
   const mode = usePlotStore((s) => s.mode);
   const hold = useSiteHold();
@@ -263,6 +281,34 @@ export default function PlotMap() {
         onSelectFloor: (level) => useResultsView.getState().setSelectedFloor(level),
       });
       let shown: SceneLayersView = EMPTY_SCENE;
+      // A plot gets the clearest camera angle once (lib/scene/clear-view.ts): when it first
+      // appears, is drawn or is reset, keyed by its first corner's id, which survives drags.
+      // After that the user's own angle is kept.
+      let angledFor: string | null = null;
+      const plotNow = () => store.getState().draft.vertices.map((v) => v.lngLat);
+      const newPlotAngle = (): ViewAngle | undefined => {
+        const key = store.getState().draft.vertices[0]?.id ?? null;
+        if (key === angledFor || map.getPitch() === 0) return undefined;
+        angledFor = key;
+        return clearViewOf(map, plotNow(), PREFERRED_VIEW);
+      };
+      let userMoved = false;
+      const onUserMove = (e: { originalEvent?: unknown }) => {
+        if (e.originalEvent) userMoved = true;
+      };
+      for (const type of ["dragstart", "zoomstart", "rotatestart", "pitchstart"] as const) {
+        map.on(type, onUserMove);
+        cleanups.push(() => map.off(type, onUserMove));
+      }
+      // Neighbours load tile by tile, so the first angle is chosen once the map has settled,
+      // unless the user has already moved the camera.
+      map.once("idle", () => {
+        if (userMoved || store.getState().mode !== "edit" || map.getPitch() === 0) return;
+        angledFor = null;
+        fitToPlot(map, plotNow(), true, undefined, newPlotAngle());
+      });
+      setNeighboursSeeThrough(map, useSceneView.getState().layers.seeThrough);
+
       // Refit once the first result arrives (its height is unknown before) and when another
       // design is chosen; edits to the same design leave the camera alone.
       let framed: { design: string | null } | null = null;
@@ -276,11 +322,7 @@ export default function PlotMap() {
           framed?.design !== results.selectedDesign
         ) {
           framed = { design: results.selectedDesign };
-          fitToPlot(
-            map,
-            store.getState().draft.vertices.map((v) => v.lngLat),
-            true,
-          );
+          fitToPlot(map, plotNow(), true, undefined, newPlotAngle());
         }
         const sceneView = useSceneView.getState();
         const view: SceneLayersView =
@@ -337,13 +379,14 @@ export default function PlotMap() {
         initial.draft.vertices.map((v) => v.lngLat),
         false,
       );
+      angledFor = initial.draft.vertices[0]?.id ?? null;
       render();
 
       const unsubscribe = store.subscribe((s, prev) => {
         if (s.geometryRevision !== prev.geometryRevision) {
           const vertices = s.draft.vertices.map((v) => v.lngLat);
           draw.loadPlot(vertices);
-          fitToPlot(map, vertices, true);
+          fitToPlot(map, vertices, true, undefined, newPlotAngle());
         }
         if (s.mode !== prev.mode) {
           measure.showDrawing(null);
@@ -383,6 +426,9 @@ export default function PlotMap() {
         useSceneView.subscribe(renderScene),
         useSceneView.subscribe((s, prev) => {
           if (s.layers.asBuilt !== prev.layers.asBuilt) hider.setAsBuiltVisible(s.layers.asBuilt);
+          if (s.layers.seeThrough !== prev.layers.seeThrough) {
+            setNeighboursSeeThrough(map, s.layers.seeThrough);
+          }
         }),
         useAsBuilt.subscribe(() => {
           syncClash();
@@ -443,13 +489,14 @@ export default function PlotMap() {
     if (!map) return;
     const next = !is3d;
     setIs3d(next);
+    setOrbiting(false);
     // A flat view needs no room for height, so it frames the plot closer.
     fitToPlot(
       map,
-      usePlotStore.getState().draft.vertices.map((v) => v.lngLat),
+      plotVertices(),
       true,
       sceneHeightM(),
-      { pitch: next ? PITCH_3D : 0, bearing: next ? BEARING_3D : 0 },
+      next ? clearAngle(map) : { pitch: 0, bearing: 0 },
     );
   }
 
@@ -457,13 +504,59 @@ export default function PlotMap() {
     const map = mapRef.current;
     if (!map) return;
     setIs3d(true);
-    map.jumpTo({ pitch: PITCH_3D, bearing: BEARING_3D });
-    fitToPlot(
-      map,
-      usePlotStore.getState().draft.vertices.map((v) => v.lngLat),
-      true,
-    );
+    setOrbiting(false);
+    fitToPlot(map, plotVertices(), true, sceneHeightM(), clearAngle(map));
   }
+
+  /** Turns the camera around the plot by a step; positive is clockwise, seen from above. */
+  function turn(deg: number) {
+    const map = mapRef.current;
+    if (!map) return;
+    setOrbiting(false);
+    if (!is3d) {
+      setIs3d(true);
+      fitToPlot(map, plotVertices(), false, sceneHeightM(), clearAngle(map));
+    }
+    map.easeTo({
+      bearing: map.getBearing() + deg,
+      duration: reducedMotion() ? 0 : 500,
+    });
+  }
+
+  // The orbit: a slow full turn around the plot until the user takes the camera, stops it, or
+  // draws. Reduced motion gets the step buttons only.
+  useEffect(() => {
+    const map = mapRef.current;
+    if (!orbiting || !map) return;
+    if (map.getPitch() === 0) {
+      setIs3d(true);
+      fitToPlot(map, plotVertices(), false, sceneHeightM(), clearAngle(map));
+    }
+    let frame = 0;
+    let last = performance.now();
+    const step = (now: number) => {
+      const dt = Math.min(0.1, (now - last) / 1000);
+      last = now;
+      map.setBearing(map.getBearing() + ORBIT_DEG_PER_S * dt);
+      frame = requestAnimationFrame(step);
+    };
+    frame = requestAnimationFrame(step);
+    const stop = () => setOrbiting(false);
+    const canvas = map.getCanvasContainer();
+    canvas.addEventListener("pointerdown", stop);
+    canvas.addEventListener("wheel", stop, { passive: true });
+    window.addEventListener("keydown", stop);
+    return () => {
+      cancelAnimationFrame(frame);
+      canvas.removeEventListener("pointerdown", stop);
+      canvas.removeEventListener("wheel", stop);
+      window.removeEventListener("keydown", stop);
+    };
+  }, [orbiting]);
+
+  useEffect(() => {
+    if (mode === "draw") setOrbiting(false);
+  }, [mode]);
 
   function refit() {
     const map = mapRef.current;
@@ -515,6 +608,61 @@ export default function PlotMap() {
           <MapLayers onReset={resetView} />
           <SceneControls />
         </div>
+      )}
+      {status.state === "ready" && mode === "edit" && (
+        <fieldset
+          aria-label="Turn the view"
+          data-testid="orbit-controls"
+          className="absolute right-3 bottom-9 flex items-center gap-0.5 rounded-lg border bg-background/95 p-0.5 shadow-sm backdrop-blur"
+        >
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Turn the view left"
+                onClick={() => turn(-TURN_STEP_DEG)}
+              >
+                <RotateCcwSquare />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Turn left 45°</TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant={orbiting ? "default" : "ghost"}
+                size="icon-sm"
+                aria-label={orbiting ? "Stop orbiting" : "Orbit 360° around the plot"}
+                aria-pressed={orbiting}
+                disabled={reducedMotionOn}
+                onClick={() => setOrbiting((on) => !on)}
+              >
+                <Orbit />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              {reducedMotionOn
+                ? "Orbit is off because your system asks for reduced motion"
+                : orbiting
+                  ? "Stop orbiting"
+                  : "Orbit 360° around the plot"}
+            </TooltipContent>
+          </Tooltip>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label="Turn the view right"
+                onClick={() => turn(TURN_STEP_DEG)}
+              >
+                <RotateCwSquare />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Turn right 45° (or drag with the right mouse button)</TooltipContent>
+          </Tooltip>
+        </fieldset>
       )}
 
       {mode === "draw" && <DrawHud progress={progress} covering={covering} />}
