@@ -46,6 +46,26 @@ export {
   toEnvelope,
 } from "./envelope";
 export { analyseSite, ENVELOPE_CEILING_M, evaluate, type SiteAnalysis } from "./evaluate";
+export {
+  FEASIBILITY_ASSUMPTIONS,
+  FEASIBILITY_KEYS,
+  type Feasibility,
+  type FeasibilityAssumption,
+  type FeasibilityKey,
+  type FeasibilityLine,
+  type FeasibilityOverrides,
+  type FeasibilityValues,
+  feasibilityAssumptionsSchema,
+  feasibilityFor,
+  formatTHB,
+  formatTHBPerM2,
+  formatTHBPerSqWah,
+  M2_PER_SQ_WAH,
+  resolveAssumptions,
+  type UseCost,
+  type UseValue,
+  type ValueBasis,
+} from "./feasibility";
 export { SAMPLE_INPUT } from "./fixtures";
 export {
   closeRing,
