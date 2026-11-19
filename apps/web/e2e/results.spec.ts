@@ -2,10 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 
 type LngLat = [number, number];
 type TestMap = {
-  loaded(): boolean;
+  isStyleLoaded(): boolean;
   getPitch(): number;
   isMoving(): boolean;
-  areTilesLoaded(): boolean;
   project(p: LngLat): { x: number; y: number };
 };
 type DeckLayer = { id: string; length: number };
@@ -29,7 +28,7 @@ const SAMPLE_CENTRE: LngLat = [100.5602, 13.7386];
 async function openTool(page: Page) {
   await page.goto("/");
   await page.waitForFunction(
-    () => (window as unknown as TestWindow).__envelopeMap?.loaded(),
+    () => (window as unknown as TestWindow).__envelopeMap?.isStyleLoaded(),
     null,
     {
       timeout: 90_000,
@@ -39,7 +38,7 @@ async function openTool(page: Page) {
   await page.waitForFunction(
     () => {
       const map = (window as unknown as TestWindow).__envelopeMap;
-      return map.getPitch() === 0 && !map.isMoving() && map.areTilesLoaded();
+      return map.getPitch() === 0 && !map.isMoving();
     },
     null,
     { timeout: 30_000 },

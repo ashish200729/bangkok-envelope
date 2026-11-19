@@ -194,9 +194,6 @@ catalogs:
     '@tailwindcss/postcss':
       specifier: 4.3.4
       version: 4.3.4
-    '@turf/area':
-      specifier: 7.4.0
-      version: 7.4.0
     '@turf/boolean-intersects':
       specifier: 7.4.0
       version: 7.4.0
@@ -343,9 +340,6 @@ importers:
       '@t3-oss/env-nextjs':
         specifier: 'catalog:'
         version: 0.13.11(typescript@6.0.3)(zod@4.6.7)
-      '@turf/area':
-        specifier: 'catalog:'
-        version: 7.4.0
       '@turf/boolean-intersects':
         specifier: 'catalog:'
         version: 7.4.0
@@ -2811,9 +2805,6 @@ packages:
     resolution: {integrity: sha512-xOkEjF3ws/b/YNlc+bvJHMYBn+vL+QbEISZFVi0qS+ImmhA1X3/gmNmBrjjIG3dg6aeN+n6gQitzSkXQ286qJQ==}
     cpu: [arm64]
     os: [win32]
-
-  '@turf/area@7.4.0':
-    resolution: {integrity: sha512-B7q5f6QwKIxxbl4/L59lAYA+FF7h2hv6st96PuKue0TGCYGSxAG/lV8LHSPUSOuOrLywN4jytJcKK3vOFBs7Nw==}
 
   '@turf/boolean-disjoint@7.4.0':
     resolution: {integrity: sha512-B6nXGFHa1+m181BZ5MOKa1l7/otws/NonUpOd0CKWTuBUzrlc6e60z/kRp5ceRYmE2LFOH5ZZxItnrsWgKc2VA==}
@@ -6495,13 +6486,6 @@ snapshots:
 
   '@turbo/windows-arm64@2.11.10':
     optional: true
-
-  '@turf/area@7.4.0':
-    dependencies:
-      '@turf/helpers': 7.4.0
-      '@turf/meta': 7.4.0
-      '@types/geojson': 7946.0.16
-      tslib: 2.9.1
 
   '@turf/boolean-disjoint@7.4.0':
     dependencies:

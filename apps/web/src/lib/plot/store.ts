@@ -86,12 +86,11 @@ function usedRoads(draft: PlotDraft, roads: readonly Road[]): Road[] {
 }
 
 function nextRoadName(roads: readonly Road[]): string {
-  const letters = "ABCDEFGH";
   const taken = new Set(roads.map((r) => r.name));
-  for (const letter of letters) {
-    if (!taken.has(`Road ${letter}`)) return `Road ${letter}`;
+  for (let i = 0; ; i++) {
+    const name = i < 26 ? `Road ${String.fromCharCode(65 + i)}` : `Road ${i + 1}`;
+    if (!taken.has(name)) return name;
   }
-  return `Road ${roads.length + 1}`;
 }
 
 export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
@@ -104,7 +103,14 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
   applyMapGeometry: (ring) =>
     set((s) => {
       const draft = reconcileVertices(s.draft, ring, newVertexId);
-      return { draft, roads: usedRoads(draft, s.roads) };
+      const exists = (id: VertexId | null) =>
+        id !== null && draft.vertices.some((v) => v.id === id);
+      return {
+        draft,
+        roads: usedRoads(draft, s.roads),
+        hoveredSide: exists(s.hoveredSide) ? s.hoveredSide : null,
+        selectedSide: exists(s.selectedSide) ? s.selectedSide : null,
+      };
     }),
 
   startDrawing: () => set({ mode: "draw", hoveredSide: null, selectedSide: null }),

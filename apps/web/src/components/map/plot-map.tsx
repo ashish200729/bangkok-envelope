@@ -44,7 +44,14 @@ function isTyping(target: EventTarget | null) {
   );
 }
 
-type MapStatus = { state: "loading" } | { state: "ready" } | { state: "failed"; message: string };
+type MapStatus =
+  | { state: "loading" }
+  | { state: "slow" }
+  | { state: "ready" }
+  | { state: "failed"; message: string };
+
+/** After this long without a map style, say so: the tile service is external. */
+const SLOW_MAP_MS = 12_000;
 
 function fitToPlot(map: MapLibreMap, vertices: readonly LngLat[], animate: boolean) {
   if (vertices.length === 0) return;
@@ -106,8 +113,16 @@ export default function PlotMap() {
     });
 
     const cleanups: (() => void)[] = [];
+    const slowTimer = setTimeout(
+      () => setStatus((s) => (s.state === "loading" ? { state: "slow" } : s)),
+      SLOW_MAP_MS,
+    );
+    cleanups.push(() => clearTimeout(slowTimer));
 
-    map.on("load", () => {
+    // style.load, not load: the plot tools need only the style, and "load" also waits for every
+    // tile and font, so one stalled download from the tile service would block the whole tool.
+    map.once("style.load", () => {
+      clearTimeout(slowTimer);
       cleanups.push(createStudyAreaLayer(map));
       const sides = createSideLayers(map, {
         onHover: (side) => store.getState().setHoveredSide(side),
@@ -135,7 +150,7 @@ export default function PlotMap() {
         },
         onDrawn: (ring) => {
           store.getState().finishDrawing(ring);
-          toast.success("Plot drawn. Now mark the side that faces a road.");
+          toast.success("Plot drawn. Check which sides face a road in the sides list.");
         },
         onRejected: (message) => toast.error(message),
       });
@@ -301,9 +316,16 @@ export default function PlotMap() {
       {mode === "draw" && <DrawHud progress={progress} />}
       {hover && mode === "edit" && <SceneTooltip hover={hover} />}
 
-      {status.state === "loading" && (
-        <div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">
-          Loading the map…
+      {(status.state === "loading" || status.state === "slow") && (
+        <div
+          role="status"
+          className="absolute inset-0 grid place-items-center p-6 text-center text-muted-foreground text-sm"
+        >
+          <p className="max-w-sm">
+            {status.state === "loading"
+              ? "Loading the map…"
+              : "The map service is slow to respond. The plot tools appear as soon as it answers."}
+          </p>
         </div>
       )}
       {status.state === "failed" && (

@@ -6,7 +6,10 @@ type LngLat = [number, number];
 async function openMap(page: Page) {
   await page.goto("/");
   await page.waitForFunction(
-    () => (window as unknown as { __envelopeMap?: { loaded(): boolean } }).__envelopeMap?.loaded(),
+    () =>
+      (
+        window as unknown as { __envelopeMap?: { isStyleLoaded(): boolean } }
+      ).__envelopeMap?.isStyleLoaded(),
     null,
     { timeout: 90_000 },
   );
@@ -15,10 +18,10 @@ async function openMap(page: Page) {
     () => {
       const map = (
         window as unknown as {
-          __envelopeMap: { getPitch(): number; isMoving(): boolean; areTilesLoaded(): boolean };
+          __envelopeMap: { getPitch(): number; isMoving(): boolean };
         }
       ).__envelopeMap;
-      return map.getPitch() === 0 && !map.isMoving() && map.areTilesLoaded();
+      return map.getPitch() === 0 && !map.isMoving();
     },
     null,
     { timeout: 30_000 },
@@ -53,7 +56,7 @@ const status = (page: Page) => page.getByTestId("input-status");
 
 test("opens on the sample plot facing Soi Sukhumvit 19", async ({ page }) => {
   await openMap(page);
-  await expect(page.getByTestId("plot-area")).toHaveText("3,503 m²");
+  await expect(page.getByTestId("plot-area")).toHaveText("3,490 m²");
   await expect(sides(page)).toHaveCount(5);
   await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
   await expect(status(page)).toHaveText(/ready for the rules check/);
@@ -62,7 +65,7 @@ test("opens on the sample plot facing Soi Sukhumvit 19", async ({ page }) => {
 test("dragging a corner updates the area live", async ({ page }) => {
   const project = await openMap(page);
   await drag(page, await project(SAMPLE_FRONT_SOUTH), -40, 30);
-  await expect(page.getByTestId("plot-area")).not.toHaveText("3,503 m²");
+  await expect(page.getByTestId("plot-area")).not.toHaveText("3,490 m²");
   await expect(sides(page)).toHaveCount(5);
 });
 
@@ -138,7 +141,7 @@ test("Esc cancels drawing and restores the plot", async ({ page }) => {
   await expect(page.getByText("Click to place each corner")).toBeVisible();
   await page.keyboard.press("Escape");
   await expect(sides(page)).toHaveCount(5);
-  await expect(page.getByTestId("plot-area")).toHaveText("3,503 m²");
+  await expect(page.getByTestId("plot-area")).toHaveText("3,490 m²");
 });
 
 test("right-clicking a corner removes it", async ({ page }) => {

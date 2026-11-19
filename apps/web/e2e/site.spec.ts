@@ -2,10 +2,9 @@ import { expect, type Page, test } from "@playwright/test";
 
 type LngLat = [number, number];
 type TestMap = {
-  loaded(): boolean;
+  isStyleLoaded(): boolean;
   getPitch(): number;
   isMoving(): boolean;
-  areTilesLoaded(): boolean;
   jumpTo(o: { center: LngLat; zoom: number }): void;
   project(p: LngLat): { x: number; y: number };
 };
@@ -14,7 +13,7 @@ function settled(page: Page) {
   return page.waitForFunction(
     () => {
       const map = (window as unknown as { __envelopeMap: TestMap }).__envelopeMap;
-      return map.getPitch() === 0 && !map.isMoving() && map.areTilesLoaded();
+      return map.getPitch() === 0 && !map.isMoving();
     },
     null,
     { timeout: 30_000 },
@@ -24,7 +23,7 @@ function settled(page: Page) {
 async function openMap(page: Page) {
   await page.goto("/");
   await page.waitForFunction(
-    () => (window as unknown as { __envelopeMap?: TestMap }).__envelopeMap?.loaded(),
+    () => (window as unknown as { __envelopeMap?: TestMap }).__envelopeMap?.isStyleLoaded(),
     null,
     { timeout: 90_000 },
   );

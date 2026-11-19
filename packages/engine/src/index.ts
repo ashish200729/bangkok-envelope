@@ -92,7 +92,14 @@ export {
   preparePlot,
   signedArea,
 } from "./plot";
-export { makeProjection, type Projection, ringCentroid, type XY } from "./projection";
+export {
+  distanceM,
+  makeProjection,
+  type Projection,
+  ringAreaM2,
+  ringCentroid,
+  type XY,
+} from "./projection";
 export { allowedRegion, type LocalPolygon, type Region, stadium } from "./region";
 export { RULE_IDS, RULE_INFO, type RuleId, type Unit } from "./rules";
 export {

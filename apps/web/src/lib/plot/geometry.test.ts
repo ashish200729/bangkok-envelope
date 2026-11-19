@@ -1,19 +1,15 @@
-import type { LngLat } from "@envelope/engine";
+import { type LngLat, makeProjection } from "@envelope/engine";
 import { describe, expect, it } from "vitest";
 import { bearingDeg, distanceM, interiorAnglesDeg, perimeterM } from "./geometry";
 
 const O: LngLat = [100.56, 13.7383];
-const COS_LAT = Math.cos((13.7383 * Math.PI) / 180);
-/** Degrees of latitude per metre at Bangkok, and of longitude per metre at this latitude. */
-const DLAT = 0.001 / 111.195;
-const DLNG = DLAT / COS_LAT;
 /** A point x metres east and y metres north of O. */
-const at = (x: number, y: number): LngLat => [O[0] + x * DLNG, O[1] + y * DLAT];
+const at = (x: number, y: number): LngLat => makeProjection(O).toLngLat({ x, y });
 
 describe("distanceM", () => {
-  it("measures 0.001° of latitude and longitude at Bangkok", () => {
-    expect(distanceM(O, [O[0], O[1] + 0.001])).toBeCloseTo(111.195, 2);
-    expect(distanceM(O, [O[0] + 0.001, O[1]])).toBeCloseTo(108.014, 2);
+  it("measures 0.001° on the WGS84 ellipsoid at Bangkok's latitude", () => {
+    expect(distanceM(O, [O[0], O[1] + 0.001])).toBeCloseTo(110.637, 2);
+    expect(distanceM(O, [O[0] + 0.001, O[1]])).toBeCloseTo(108.155, 2);
   });
 });
 

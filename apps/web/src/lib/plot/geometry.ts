@@ -1,18 +1,12 @@
-import { closeRing, type LngLat } from "@envelope/engine";
-import { area } from "@turf/area";
-import { polygon } from "@turf/helpers";
+import {
+  distanceM as engineDistanceM,
+  type LngLat,
+  makeProjection,
+  ringAreaM2,
+} from "@envelope/engine";
 
-const EARTH_RADIUS_M = 6_371_008.8;
-const RAD = Math.PI / 180;
-
-/** Great-circle distance in metres. */
-export function distanceM(a: LngLat, b: LngLat): number {
-  const dLat = (b[1] - a[1]) * RAD;
-  const dLng = (b[0] - a[0]) * RAD;
-  const h =
-    Math.sin(dLat / 2) ** 2 + Math.cos(a[1] * RAD) * Math.cos(b[1] * RAD) * Math.sin(dLng / 2) ** 2;
-  return 2 * EARTH_RADIUS_M * Math.asin(Math.sqrt(h));
-}
+/** Distance in metres, the same measure the engine uses. */
+export const distanceM = engineDistanceM;
 
 /** Length of each side; side i runs from vertex i to vertex i + 1. */
 export function sideLengthsM(vertices: readonly LngLat[]): number[] {
@@ -32,13 +26,9 @@ export function perimeterM(vertices: readonly LngLat[], closed = true): number {
 
 /** Compass bearing from a to b in degrees clockwise from north, [0, 360); NaN if a = b. */
 export function bearingDeg(a: LngLat, b: LngLat): number {
-  const lat1 = a[1] * RAD;
-  const lat2 = b[1] * RAD;
-  const dLng = (b[0] - a[0]) * RAD;
-  const y = Math.sin(dLng) * Math.cos(lat2);
-  const x = Math.cos(lat1) * Math.sin(lat2) - Math.sin(lat1) * Math.cos(lat2) * Math.cos(dLng);
+  const { x, y } = makeProjection(a).toLocal(b);
   if (x === 0 && y === 0) return Number.NaN;
-  return (Math.atan2(y, x) / RAD + 360) % 360;
+  return ((Math.atan2(x, y) * 180) / Math.PI + 360) % 360;
 }
 
 /** True when the outline runs counter-clockwise with north up, so its inside is on the left. */
@@ -67,11 +57,8 @@ export function interiorAnglesDeg(vertices: readonly LngLat[]): number[] {
   });
 }
 
-/** Geodesic area in square metres; 0 for fewer than three vertices. */
-export function areaM2(vertices: readonly LngLat[]): number {
-  if (vertices.length < 3) return 0;
-  return area(polygon([closeRing(vertices).map(([lng, lat]) => [lng, lat])]));
-}
+/** Area in square metres, the same measure the engine uses; 0 for fewer than three vertices. */
+export const areaM2 = ringAreaM2;
 
 export function midpoint(a: LngLat, b: LngLat): LngLat {
   return [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];

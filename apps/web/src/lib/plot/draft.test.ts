@@ -92,11 +92,11 @@ describe("reconcileVertices", () => {
 });
 
 describe("geometry", () => {
-  it("measures a ~108 m × 111 m square at Bangkok's latitude", () => {
+  it("measures a 0.001° square at Bangkok's latitude on the WGS84 ellipsoid", () => {
     const lengths = sideLengthsM(square);
-    expect(lengths[0]).toBeCloseTo(108.1, 0);
-    expect(lengths[1]).toBeCloseTo(111.2, 0);
-    expect(areaM2(square)).toBeCloseTo(108.1 * 111.2, -2);
+    expect(lengths[0]).toBeCloseTo(108.16, 1);
+    expect(lengths[1]).toBeCloseTo(110.64, 1);
+    expect(areaM2(square)).toBeCloseTo(108.16 * 110.64, -1);
   });
 });
 

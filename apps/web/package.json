@@ -21,7 +21,6 @@
     "@envelope/engine": "workspace:*",
     "@envelope/ui": "workspace:*",
     "@t3-oss/env-nextjs": "catalog:",
-    "@turf/area": "catalog:",
     "@turf/boolean-intersects": "catalog:",
     "@turf/helpers": "catalog:",
     "hono": "catalog:",

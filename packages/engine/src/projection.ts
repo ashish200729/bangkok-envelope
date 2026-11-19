@@ -59,3 +59,24 @@ export function ringCentroid(vertices: readonly LngLat[]): LngLat {
   }
   return [first[0] + cx / (3 * area2), first[1] + cy / (3 * area2)];
 }
+
+/** Distance in metres, measured exactly as the engine measures (local WGS84 plane). */
+export function distanceM(a: LngLat, b: LngLat): number {
+  const projection = makeProjection(a);
+  const p = projection.toLocal(b);
+  return Math.hypot(p.x, p.y);
+}
+
+/** Area in m² of a ring (open or closed), measured exactly as the engine measures plots. */
+export function ringAreaM2(vertices: readonly LngLat[]): number {
+  if (vertices.length < 3) return 0;
+  const projection = makeProjection(ringCentroid(vertices));
+  const points = vertices.map(projection.toLocal);
+  let twice = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i] as XY;
+    const b = points[(i + 1) % points.length] as XY;
+    twice += a.x * b.y - b.x * a.y;
+  }
+  return Math.abs(twice) / 2;
+}
