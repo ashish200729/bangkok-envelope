@@ -36,8 +36,12 @@ export function createApp(deps: ApiDeps) {
           database: { ok: true as const, ...database },
         });
       } catch (error) {
-        const message = error instanceof Error ? error.message : "Unknown database error";
         console.error("health: database check failed", error);
+        // Driver errors can name hosts and users; only show them outside production.
+        const message =
+          process.env.NODE_ENV !== "production" && error instanceof Error
+            ? error.message
+            : "Database unreachable";
         return c.json(
           {
             status: "degraded" as const,
