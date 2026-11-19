@@ -16,7 +16,9 @@ import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
 import { usePlotStore } from "@/lib/plot/store";
 import { createBuildingHider } from "./building-hider";
-import { createDrawController } from "./draw-controller";
+import { createDrawController, type DrawController } from "./draw-controller";
+import { DrawHud } from "./draw-hud";
+import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
 import { createSideLayers } from "./side-layers";
 
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString());
@@ -24,6 +26,15 @@ setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const PITCH_3D = 55;
 const EMPTY_IMAGE = { width: 1, height: 1, data: new Uint8Array(4) };
+
+const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+function isTyping(target: EventTarget | null) {
+  return (
+    target instanceof HTMLElement &&
+    (target.isContentEditable || ["INPUT", "TEXTAREA", "SELECT"].includes(target.tagName))
+  );
+}
 
 type MapStatus = { state: "loading" } | { state: "ready" } | { state: "failed"; message: string };
 
@@ -36,13 +47,15 @@ function fitToPlot(map: MapLibreMap, vertices: readonly LngLat[], animate: boole
     maxZoom: 18,
     pitch: map.getPitch(),
     bearing: map.getBearing(),
-    duration: animate ? 700 : 0,
+    duration: animate && !reducedMotion() ? 700 : 0,
   });
 }
 
 export default function PlotMap() {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapLibreMap | null>(null);
+  const drawRef = useRef<DrawController | null>(null);
+  const [progress, setProgress] = useState<DrawProgress>(NO_PROGRESS);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
   const mode = usePlotStore((s) => s.mode);
@@ -63,6 +76,7 @@ export default function PlotMap() {
         bearing: -20,
         maxPitch: 75,
         canvasContextAttributes: { antialias: true },
+        fadeDuration: reducedMotion() ? 0 : 300,
         attributionControl: { compact: true },
       });
     } catch (error) {
@@ -89,19 +103,38 @@ export default function PlotMap() {
         onHover: (side) => store.getState().setHoveredSide(side),
         onSelect: (side) => store.getState().setSelectedSide(side),
       });
+      const measure = createMeasureLayers(map);
       const hider = createBuildingHider(map);
+      let draggedCorner: number | null = null;
       const draw = createDrawController(map, {
-        onEdit: (ring) => store.getState().applyMapGeometry(ring),
+        onEdit: (ring, dragged) => {
+          draggedCorner = dragged;
+          store.getState().applyMapGeometry(ring);
+          const vertices = store.getState().draft.vertices.map((v) => v.lngLat);
+          measure.showCornerDrag(dragged === null ? null : { vertices, index: dragged });
+        },
+        onEditEnd: () => {
+          draggedCorner = null;
+          measure.showCornerDrag(null);
+          render();
+        },
+        onDrawProgress: (next) => {
+          if (store.getState().mode !== "draw") return;
+          measure.showDrawing(next);
+          setProgress(next);
+        },
         onDrawn: (ring) => {
           store.getState().finishDrawing(ring);
           toast.success("Plot drawn. Now mark the side that faces a road.");
         },
         onRejected: (message) => toast.error(message),
       });
+      sides.raiseLabels();
+      measure.raise();
 
       const render = () => {
         const s = store.getState();
-        sides.render(s);
+        sides.render({ ...s, draggedCorner });
         sides.setVisible(s.mode === "edit");
         hider.update(s.draft.vertices.map((v) => v.lngLat));
       };
@@ -120,7 +153,11 @@ export default function PlotMap() {
           draw.loadPlot(vertices);
           fitToPlot(map, vertices, true);
         }
-        if (s.mode !== prev.mode) draw.setMode(s.mode);
+        if (s.mode !== prev.mode) {
+          measure.showDrawing(null);
+          setProgress(NO_PROGRESS);
+          draw.setMode(s.mode);
+        }
         if (
           s.draft !== prev.draft ||
           s.roads !== prev.roads ||
@@ -132,8 +169,12 @@ export default function PlotMap() {
         }
       });
 
+      map.on("rotate", render);
+      drawRef.current = draw;
       cleanups.push(
         unsubscribe,
+        () => map.off("rotate", render),
+        () => measure.destroy(),
         () => draw.destroy(),
         () => hider.destroy(),
       );
@@ -149,6 +190,7 @@ export default function PlotMap() {
     return () => {
       for (const cleanup of cleanups) cleanup();
       mapRef.current = null;
+      drawRef.current = null;
       map.remove();
     };
   }, []);
@@ -157,6 +199,9 @@ export default function PlotMap() {
     if (mode !== "draw") return;
     const onKey = (e: KeyboardEvent) => {
       if (e.key === "Escape") usePlotStore.getState().cancelDrawing();
+      if (e.key === "Backspace" && !isTyping(e.target) && drawRef.current?.removeLastCorner()) {
+        e.preventDefault();
+      }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
@@ -167,7 +212,11 @@ export default function PlotMap() {
     if (!map) return;
     const next = !is3d;
     setIs3d(next);
-    map.easeTo({ pitch: next ? PITCH_3D : 0, bearing: next ? -20 : 0, duration: 600 });
+    map.easeTo({
+      pitch: next ? PITCH_3D : 0,
+      bearing: next ? -20 : 0,
+      duration: reducedMotion() ? 0 : 600,
+    });
   }
 
   function refit() {
@@ -215,12 +264,7 @@ export default function PlotMap() {
         </div>
       )}
 
-      {mode === "draw" && (
-        <div className="-translate-x-1/2 absolute top-3 left-1/2 rounded-md border bg-background/95 px-3 py-2 text-sm shadow-sm">
-          Click to place each corner. Click the first corner to finish.{" "}
-          <span className="text-muted-foreground">Esc cancels.</span>
-        </div>
-      )}
+      {mode === "draw" && <DrawHud progress={progress} />}
 
       {status.state === "loading" && (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">

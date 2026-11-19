@@ -128,3 +128,78 @@ test("right-clicking a corner removes it", async ({ page }) => {
   await expect(sides(page)).toHaveCount(4);
   await expect(page.getByRole("combobox", { name: "Side 1 faces" })).toHaveText(/Soi Sukhumvit 19/);
 });
+
+/** Text of the labels MapLibre is drawing on one of our symbol layers. */
+function labels(page: Page, layer: string) {
+  return page.evaluate(
+    (id) =>
+      (
+        window as unknown as {
+          __envelopeMap: {
+            queryRenderedFeatures(o: { layers: string[] }): { properties: { text: string } }[];
+          };
+        }
+      ).__envelopeMap
+        .queryRenderedFeatures({ layers: [id] })
+        .map((f) => f.properties.text),
+    layer,
+  );
+}
+
+test("measurements follow the pointer while drawing, and Backspace removes a corner", async ({
+  page,
+}) => {
+  const project = await openMap(page);
+  await page.getByRole("button", { name: "Draw a new plot" }).click();
+  const hud = page.getByTestId("draw-hud");
+  const corners: LngLat[] = [
+    [100.5599, 13.7383],
+    [100.5602, 13.7383],
+    [100.5602, 13.7386],
+  ];
+  for (const c of corners.slice(0, 2)) {
+    const pt = await project(c);
+    await page.mouse.click(pt.x, pt.y);
+  }
+  const cursor = await project([100.56005, 13.7387]);
+  await page.mouse.move(cursor.x, cursor.y, { steps: 4 });
+
+  await expect.poll(() => labels(page, "plot-measure-length")).toContain("32.4 m");
+  await expect
+    .poll(() => labels(page, "plot-measure-live"))
+    .toEqual([expect.stringMatching(/^\d+\.\d m · \d+°$/)]);
+  await expect(hud).toContainText("Perimeter");
+  await expect(hud).not.toContainText("Area");
+
+  const third = await project(corners[2] as LngLat);
+  await page.mouse.click(third.x, third.y);
+  await expect(hud).toContainText("Area");
+  await expect(hud).toContainText("m²");
+  await expect.poll(() => labels(page, "plot-measure-angle")).toHaveLength(3);
+
+  await page.keyboard.press("Backspace");
+  await expect(hud).not.toContainText("Area");
+  await expect(hud.getByText("2", { exact: true })).toBeVisible();
+});
+
+test("dragging a corner shows its two sides and its angle", async ({ page }) => {
+  const project = await openMap(page);
+  const from = await project(SAMPLE_FRONT_SOUTH);
+  await page.mouse.move(from.x, from.y);
+  await page.mouse.down();
+  for (let i = 1; i <= 6; i++) await page.mouse.move(from.x - i * 5, from.y + i * 4);
+
+  await expect
+    .poll(() => labels(page, "plot-sides-label-active"))
+    .toEqual(
+      expect.arrayContaining([
+        expect.stringMatching(/^Soi Sukhumvit 19 · 10 m road · \d+\.\d m$/),
+        expect.stringMatching(/^\d · \d+\.\d m$/),
+      ]),
+    );
+  await expect
+    .poll(() => labels(page, "plot-measure-live"))
+    .toEqual([expect.stringMatching(/^\d+°/)]);
+  await page.mouse.up();
+  await expect(page.getByTestId("plot-perimeter")).toContainText("5 sides");
+});

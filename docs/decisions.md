@@ -69,3 +69,7 @@ Clicking a thin line on a tilted 3D map is fiddly and impossible from a keyboard
 ## 17. The basemap stays light in dark mode
 
 OpenFreeMap's Liberty style (the one with 3D buildings) has no dark variant. The panel and controls follow the theme; the map does not. Revisit if a dark style with `building-3d` becomes available.
+
+## 18. Live measurements while drawing and editing
+
+A developer checks a plot against the title deed and the site, so every side shows its length while it is drawn and edited, the side under the pointer also shows its compass bearing, each corner its interior angle, and a HUD shows perimeter and area (m² and rai/ngan/wah). Labels are native MapLibre symbols on a GeoJSON source updated once per animation frame, not React markers, so they cost nothing between frames and take part in MapLibre's collision handling. Labels are horizontal pills placed beside the outline (lengths outside, angles inside), not along the line, because short sides cannot fit text along them. Corners under 15° are flagged: they are almost always a misplaced click.

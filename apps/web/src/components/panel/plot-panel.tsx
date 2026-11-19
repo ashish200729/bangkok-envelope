@@ -26,7 +26,7 @@ import { type ReactNode, useEffect, useMemo, useRef } from "react";
 import { sideRole, type VertexId } from "@/lib/plot/draft";
 import { toEngineInput } from "@/lib/plot/engine-input";
 import { formatM, formatM2, formatThaiLandArea } from "@/lib/plot/format";
-import { areaM2, sideLengthsM } from "@/lib/plot/geometry";
+import { areaM2, perimeterM, sideLengthsM } from "@/lib/plot/geometry";
 import { usePlotStore } from "@/lib/plot/store";
 
 const NEW_ROAD = "__new-road__";
@@ -52,6 +52,7 @@ export function PlotPanel() {
 
   const vertices = useMemo(() => draft.vertices.map((v) => v.lngLat), [draft.vertices]);
   const area = useMemo(() => areaM2(vertices), [vertices]);
+  const perimeter = useMemo(() => perimeterM(vertices), [vertices]);
   const check = useMemo(() => toEngineInput(draft, roads, settings), [draft, roads, settings]);
   const hasRoad = draft.vertices.some((v) => sideRole(draft, v.id).kind === "road");
 
@@ -64,6 +65,10 @@ export function PlotPanel() {
           </p>
           <p className="text-muted-foreground text-sm">{formatThaiLandArea(area)}</p>
         </div>
+        <p className="text-muted-foreground text-sm" data-testid="plot-perimeter">
+          Perimeter <span className="font-mono text-foreground tabular">{formatM(perimeter)}</span>{" "}
+          · {vertices.length} sides
+        </p>
         <div className="flex flex-wrap gap-2">
           {mode === "draw" ? (
             <Button

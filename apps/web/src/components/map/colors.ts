@@ -8,7 +8,11 @@ export const MAP_COLORS = {
   plotFill: "#3b7bd1",
   road: "#1f5aa6",
   active: "#d68a00",
+  activeFill: "#fdf0d2",
   boundaryLabel: "#5c5249",
+  ink: "#1d1713",
+  pillBorder: "#d9d4ce",
+  fail: "#d02c2a",
   halo: "#ffffff",
   white: "#ffffff",
 } as const;
