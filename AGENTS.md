@@ -205,7 +205,7 @@ Rules of the contract:
 
 ### Engine algorithm
 
-Steps 1–4 are built (phase 3); 5–6 in phase 5 (decisions 26–31).
+Steps 1–4 are built (phase 3); 5–6 in phase 5 (decisions 27–33).
 
 1. Project the plot to local metres (equirectangular around the plot centroid; error < 0.01% at plot scale).
 2. Label each plot edge as road-facing (with its road width) or neighbour boundary.
