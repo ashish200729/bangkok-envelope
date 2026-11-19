@@ -22,6 +22,7 @@ import { sceneFor } from "@/lib/results/scene";
 import { useResultsView } from "@/lib/results/view";
 import { useAsBuilt } from "@/lib/scene/as-built";
 import { sceneTimestamp, useSceneView } from "@/lib/scene/view";
+import { useStudio } from "@/lib/studio/store";
 import { applyBasemapStyle, type BasemapPalette } from "./basemap-style";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
@@ -67,6 +68,14 @@ function sceneHeightM(): number {
   const envelopeM = scene.envelope.envelope.maxHeightM;
   const unlimited = envelopeM >= ENVELOPE_CEILING_M;
   return Math.max(designM, unlimited ? Math.max(designM * 1.2, 60) : envelopeM);
+}
+
+const NO_BREACHES: readonly number[] = [];
+
+/** Floors of a studio variant that stick out of the envelope, for the red tint. */
+function breachesOf(id: string | null): readonly number[] {
+  if (!id?.startsWith("custom-")) return NO_BREACHES;
+  return useStudio.getState().builds[id as `custom-${string}`]?.breaches ?? NO_BREACHES;
 }
 
 const FIT_PADDING = { top: 120, bottom: 120, left: 120, right: 120 };
@@ -255,6 +264,7 @@ export default function PlotMap() {
                 design: next.design,
                 input: next.input,
                 selectedFloor: results.selectedFloor,
+                breaches: breachesOf(results.selectedDesign),
                 toggles: sceneView.layers,
                 palette: paletteRef.current,
                 timestampMs: sceneTimestamp(sceneView),
@@ -275,6 +285,7 @@ export default function PlotMap() {
           view.toggles === shown.toggles &&
           view.palette === shown.palette &&
           view.selectedFloor === shown.selectedFloor &&
+          view.breaches === shown.breaches &&
           view.timestampMs === shown.timestampMs &&
           view.night === shown.night
         ) {
@@ -330,6 +341,9 @@ export default function PlotMap() {
         unsubscribe,
         useEngineStore.subscribe(renderScene),
         useResultsView.subscribe(renderScene),
+        useStudio.subscribe((st, prev) => {
+          if (st.builds !== prev.builds) renderScene();
+        }),
         useSceneView.subscribe(renderScene),
         useSceneView.subscribe((s, prev) => {
           if (s.layers.asBuilt !== prev.layers.asBuilt) hider.setAsBuiltVisible(s.layers.asBuilt);

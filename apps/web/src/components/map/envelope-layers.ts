@@ -66,6 +66,8 @@ export type SceneLayersView = {
   /** Bangkok date and hour as an instant, for the sun. */
   timestampMs: number;
   night: boolean;
+  /** Levels of the design that stick out of the envelope (an edited design with fitting off). */
+  breaches: readonly number[];
 };
 
 export const EMPTY_SCENE: SceneLayersView = {
@@ -73,6 +75,7 @@ export const EMPTY_SCENE: SceneLayersView = {
   design: null,
   input: null,
   selectedFloor: null,
+  breaches: [],
   toggles: { setback: true, heightLimit: true, asBuilt: false },
   palette: "light",
   timestampMs: 0,
@@ -269,7 +272,16 @@ function envelopeEdgesLayer(edges: Edge[], ghost: boolean) {
 
 const fill = (color: Rgb): [number, number, number, number] => [...color, 255];
 
-function bandLayer(id: string, data: MassBand[], pickable: boolean) {
+/** Floors outside the envelope: the checklist's fail red, as hex like every map colour. */
+const BREACH_RGB = rgb("#d6453d");
+
+function bandLayer(
+  id: string,
+  data: MassBand[],
+  pickable: boolean,
+  breaches: readonly number[] = [],
+) {
+  const outside = new Set(breaches);
   return new SolidPolygonLayer<MassBand>({
     ...UNDER_PLOT_OUTLINE,
     id,
@@ -277,7 +289,8 @@ function bandLayer(id: string, data: MassBand[], pickable: boolean) {
     extruded: true,
     getPolygon: (d) => d.polygon,
     getElevation: (d) => d.elevation,
-    getFillColor: (d) => fill(d.color),
+    getFillColor: (d) => fill(outside.has(d.floor.level) ? BREACH_RGB : d.color),
+    updateTriggers: { getFillColor: breaches.join(",") },
     material: WALL_MATERIAL,
     pickable,
     autoHighlight: pickable,
@@ -553,7 +566,7 @@ export function createSceneLayers(map: MapLibreMap, handlers: Handlers): SceneLa
         next.push(...treeLayers(landscape.trees));
       }
       next.push(
-        bandLayer("design-floors", massing.facades, true),
+        bandLayer("design-floors", massing.facades, true, view.breaches),
         bandLayer("design-slabs", massing.slabs, false),
         flatLayer("design-roofs", massing.roofs, WALL_MATERIAL),
         boxLayer("design-details", massing.boxes),

@@ -70,7 +70,6 @@ export function SectionPreview({
   const chosen = new Set(selected);
   const breached = new Set(breaches);
   const top = model.bands.findLast((b) => !b.empty);
-  const leftEdge = Math.min(...model.bands.map((b) => x(b.x0)), x(model.ground.x0));
   const buildingRight = Math.max(...model.bands.map((b) => x(b.x1)), x(model.ground.x1));
   const threshold = LAW.highRiseThresholdM.value;
   const showThreshold = model.heightM > threshold * 0.6 && y(threshold) > PADDING;
@@ -131,19 +130,14 @@ export function SectionPreview({
         {showThreshold && (
           <g aria-hidden>
             <line
-              x1={leftEdge}
+              x1={2}
               x2={buildingRight + 4}
               y1={y(threshold)}
               y2={y(threshold)}
               className="stroke-muted-foreground/40"
               strokeDasharray="1 3"
             />
-            <text
-              x={leftEdge - 4}
-              y={y(threshold) + 3}
-              textAnchor="end"
-              className="fill-muted-foreground font-mono text-[9px]"
-            >
+            <text x={2} y={y(threshold) - 2} className="fill-muted-foreground font-mono text-[9px]">
               {threshold} m
             </text>
           </g>
