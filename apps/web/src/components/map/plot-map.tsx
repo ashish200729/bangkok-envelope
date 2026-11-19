@@ -14,10 +14,15 @@ import {
 import "maplibre-gl/dist/maplibre-gl.css";
 import { useEffect, useRef, useState } from "react";
 import { toast } from "sonner";
+import { type SceneHover, SceneTooltip } from "@/components/results/scene-tooltip";
+import { startEngine, useEngineStore } from "@/lib/engine/store";
 import { usePlotStore } from "@/lib/plot/store";
+import { sceneFor } from "@/lib/results/scene";
+import { useResultsView } from "@/lib/results/view";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
 import { DrawHud } from "./draw-hud";
+import { createSceneLayers, type SceneLayersView } from "./envelope-layers";
 import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
 import { createSideLayers } from "./side-layers";
 import { createStudyAreaLayer } from "./study-area-layer";
@@ -26,6 +31,8 @@ setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url)
 
 const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const PITCH_3D = 55;
+// Looks at the sample plot from across Soi 19; from the south a 177 m neighbour hides the envelope.
+const BEARING_3D = 120;
 const EMPTY_IMAGE = { width: 1, height: 1, data: new Uint8Array(4) };
 
 const reducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -59,6 +66,7 @@ export default function PlotMap() {
   const [progress, setProgress] = useState<DrawProgress>(NO_PROGRESS);
   const [status, setStatus] = useState<MapStatus>({ state: "loading" });
   const [is3d, setIs3d] = useState(true);
+  const [hover, setHover] = useState<SceneHover | null>(null);
   const mode = usePlotStore((s) => s.mode);
 
   useEffect(() => {
@@ -74,7 +82,7 @@ export default function PlotMap() {
         center: initial.draft.vertices[0]?.lngLat as [number, number] | undefined,
         zoom: 17,
         pitch: PITCH_3D,
-        bearing: -20,
+        bearing: BEARING_3D,
         maxPitch: 75,
         canvasContextAttributes: { antialias: true },
         fadeDuration: reducedMotion() ? 0 : 300,
@@ -134,6 +142,27 @@ export default function PlotMap() {
       sides.raiseLabels();
       measure.raise();
 
+      const scene = createSceneLayers(map, { onHover: setHover });
+      let shown: SceneLayersView = { envelope: null, design: null };
+      const renderScene = () => {
+        const next = sceneFor(useEngineStore.getState().state, useResultsView.getState());
+        const view: SceneLayersView =
+          next && store.getState().mode === "edit"
+            ? { envelope: next.envelope, design: next.design }
+            : { envelope: null, design: null };
+        if (
+          view.envelope?.envelope === shown.envelope?.envelope &&
+          view.envelope?.kind === shown.envelope?.kind &&
+          view.design === shown.design
+        ) {
+          return;
+        }
+        shown = view;
+        scene.update(view);
+      };
+      startEngine();
+      renderScene();
+
       const render = () => {
         const s = store.getState();
         sides.render({ ...s, draggedCorner });
@@ -175,6 +204,9 @@ export default function PlotMap() {
       drawRef.current = draw;
       cleanups.push(
         unsubscribe,
+        useEngineStore.subscribe(renderScene),
+        useResultsView.subscribe(renderScene),
+        () => scene.destroy(),
         () => map.off("rotate", render),
         () => measure.destroy(),
         () => draw.destroy(),
@@ -216,7 +248,7 @@ export default function PlotMap() {
     setIs3d(next);
     map.easeTo({
       pitch: next ? PITCH_3D : 0,
-      bearing: next ? -20 : 0,
+      bearing: next ? BEARING_3D : 0,
       duration: reducedMotion() ? 0 : 600,
     });
   }
@@ -267,6 +299,7 @@ export default function PlotMap() {
       )}
 
       {mode === "draw" && <DrawHud progress={progress} />}
+      {hover && mode === "edit" && <SceneTooltip hover={hover} />}
 
       {status.state === "loading" && (
         <div className="absolute inset-0 grid place-items-center text-muted-foreground text-sm">

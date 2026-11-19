@@ -2,7 +2,9 @@ import {
   ALL_RULES_ON,
   type BuildingType,
   type LngLat,
+  MAX_FAR_BONUS_PCT,
   type Road,
+  type RuleToggles,
   SAMPLE_INPUT,
   type ZoneCode,
 } from "@envelope/engine";
@@ -44,6 +46,8 @@ type PlotActions = {
   setZone: (zone: ZoneCode) => void;
   setBuildingType: (buildingType: BuildingType) => void;
   setStationDistance: (meters: number | null) => void;
+  setToggle: (rule: keyof RuleToggles, on: boolean) => void;
+  setFarBonus: (pct: number) => void;
   setHoveredSide: (side: VertexId | null) => void;
   setSelectedSide: (side: VertexId | null) => void;
   resetToSample: () => void;
@@ -148,6 +152,14 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
   setBuildingType: (buildingType) => set((s) => ({ settings: { ...s.settings, buildingType } })),
   setStationDistance: (stationDistanceM) =>
     set((s) => ({ settings: { ...s.settings, stationDistanceM } })),
+  setToggle: (rule, on) =>
+    set((s) => ({
+      settings: { ...s.settings, toggles: { ...s.settings.toggles, [rule]: on } },
+    })),
+  setFarBonus: (pct) =>
+    set((s) => ({
+      settings: { ...s.settings, farBonusPct: Math.min(MAX_FAR_BONUS_PCT, Math.max(0, pct)) },
+    })),
 
   setHoveredSide: (hoveredSide) => set({ hoveredSide }),
   setSelectedSide: (selectedSide) => set({ selectedSide }),
