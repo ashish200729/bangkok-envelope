@@ -1,16 +1,26 @@
-import type { EngineReply, WorkerRequest, WorkerResponse } from "./protocol";
+import type {
+  CustomReply,
+  EngineReply,
+  EngineRequest,
+  ReplyFor,
+  WorkerRequest,
+  WorkerResponse,
+} from "./protocol";
 
 export type EngineBackend = "worker" | "main-thread";
 
 export type EngineRunner = {
   run: (input: unknown) => Promise<EngineReply>;
+  buildCustom: (input: unknown, spec: unknown, designId: unknown) => Promise<CustomReply>;
   backend: () => EngineBackend;
   dispose: () => void;
 };
 
-async function runOnMainThread(input: unknown): Promise<EngineReply> {
+type Reply = EngineReply | CustomReply;
+
+async function runOnMainThread(request: EngineRequest): Promise<Reply> {
   const { handleRequest } = await import("./handle");
-  return handleRequest(input);
+  return handleRequest(request);
 }
 
 function createWorker(): Worker | null {
@@ -26,13 +36,15 @@ function createWorker(): Worker | null {
 export function createEngineRunner(): EngineRunner {
   let worker = createWorker();
   let nextId = 0;
-  const waiting = new Map<number, { input: unknown; resolve: (reply: EngineReply) => void }>();
+  const waiting = new Map<number, { request: EngineRequest; resolve: (reply: Reply) => void }>();
 
   function fallBack(reason: unknown) {
     console.warn("engine: worker failed, evaluating on the main thread", reason);
     worker?.terminate();
     worker = null;
-    for (const { input, resolve } of waiting.values()) void runOnMainThread(input).then(resolve);
+    for (const { request, resolve } of waiting.values()) {
+      void runOnMainThread(request).then(resolve);
+    }
     waiting.clear();
   }
 
@@ -50,18 +62,21 @@ export function createEngineRunner(): EngineRunner {
     worker.onmessageerror = (event) => fallBack(event);
   }
 
+  function send<R extends EngineRequest>(request: R): Promise<ReplyFor<R>> {
+    const target = worker;
+    if (!target) return runOnMainThread(request) as Promise<ReplyFor<R>>;
+    nextId += 1;
+    const id = nextId;
+    return new Promise((resolve) => {
+      waiting.set(id, { request, resolve: resolve as (reply: Reply) => void });
+      const message: WorkerRequest = { id, request };
+      target.postMessage(message);
+    });
+  }
+
   return {
-    run(input) {
-      const target = worker;
-      if (!target) return runOnMainThread(input);
-      nextId += 1;
-      const id = nextId;
-      return new Promise((resolve) => {
-        waiting.set(id, { input, resolve });
-        const request: WorkerRequest = { id, input };
-        target.postMessage(request);
-      });
-    },
+    run: (input) => send({ kind: "evaluate", input }),
+    buildCustom: (input, spec, designId) => send({ kind: "build-custom", input, spec, designId }),
     backend: () => (worker ? "worker" : "main-thread"),
     dispose() {
       worker?.terminate();

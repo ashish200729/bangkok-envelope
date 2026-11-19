@@ -9,7 +9,7 @@ import {
   SAMPLE_INPUT,
 } from "@envelope/engine";
 import { describe, expect, it } from "vitest";
-import { handleRequest } from "@/lib/engine/handle";
+import { handleEvaluate } from "@/lib/engine/handle";
 import { outlinePolygons, scheduleAreasM2, sumFloorAreas } from "./designs";
 import { fixtureDesigns } from "./fixtures";
 import { floorLabel, formatCheckFigures, formatRuleValue } from "./format";
@@ -195,12 +195,12 @@ describe("designs", () => {
 
 describe("worker boundary", () => {
   it("refuses input that fails the schema, with the problems", () => {
-    const reply = handleRequest({ ...SAMPLE_INPUT, farBonusPct: 50 });
+    const reply = handleEvaluate({ ...SAMPLE_INPUT, farBonusPct: 50 });
     expect(reply.kind).toBe("invalid");
   });
 
   it("evaluates valid input", () => {
-    const reply = handleRequest(SAMPLE_INPUT);
+    const reply = handleEvaluate(SAMPLE_INPUT);
     expect(reply.kind === "result" && reply.result.ok).toBe(true);
   });
 });

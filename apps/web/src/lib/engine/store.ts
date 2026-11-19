@@ -1,7 +1,13 @@
-import type { EngineInput, EngineResult } from "@envelope/engine";
+import type { CustomDesignId, EngineInput, EngineResult } from "@envelope/engine";
 import { create } from "zustand";
 import { toEngineInput } from "@/lib/plot/engine-input";
 import { usePlotStore } from "@/lib/plot/store";
+import {
+  type CustomBuilds,
+  type CustomDelivery,
+  type CustomJob,
+  createCustomBuilds,
+} from "./custom-builds";
 import type { EngineReply } from "./protocol";
 import { createEngineRunner, type EngineBackend } from "./runner";
 import { createLatestWins } from "./scheduler";
@@ -38,6 +44,24 @@ type Job = { input: EngineInput };
 type Outcome = { input: EngineInput; reply: EngineReply };
 
 let stop: (() => void) | null = null;
+let customBuilds: CustomBuilds | null = null;
+const customListeners = new Set<(delivery: CustomDelivery) => void>();
+
+/** Builds an edited design in the engine worker; the newest edit of each design wins. */
+export function submitCustomBuild(job: CustomJob) {
+  startEngine();
+  customBuilds?.submit(job);
+}
+
+export function forgetCustomBuild(id: CustomDesignId) {
+  customBuilds?.forget(id);
+}
+
+/** Hears every edited-design build as it lands. Returns the unsubscribe. */
+export function onCustomBuild(listener: (delivery: CustomDelivery) => void): () => void {
+  customListeners.add(listener);
+  return () => customListeners.delete(listener);
+}
 
 /** Starts evaluating the plot store's input on every change. Idempotent; browser only. */
 export function startEngine(): () => void {
@@ -45,6 +69,13 @@ export function startEngine(): () => void {
   const runner = createEngineRunner();
   const set = useEngineStore.setState;
   set({ backend: runner.backend() });
+  const builds = createCustomBuilds(
+    (job) => runner.buildCustom(job.input, job.spec, job.id),
+    (delivery) => {
+      for (const listener of customListeners) listener(delivery);
+    },
+  );
+  customBuilds = builds;
 
   const scheduler = createLatestWins<Job, Outcome>(
     async ({ input }) => ({ input, reply: await runner.run(input) }),
@@ -98,6 +129,8 @@ export function startEngine(): () => void {
   stop = () => {
     unsubscribe();
     scheduler.dispose();
+    builds.dispose();
+    customBuilds = null;
     runner.dispose();
     stop = null;
   };
