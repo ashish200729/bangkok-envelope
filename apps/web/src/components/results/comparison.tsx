@@ -6,6 +6,7 @@ import { cn } from "@envelope/ui/lib/utils";
 import { ChevronDown } from "lucide-react";
 import { formatArea, formatFar, formatInt, formatLength } from "@/lib/results/format";
 import { type AnyDesign, useResultsView } from "@/lib/results/view";
+import { type AsBuilt, asBuiltStoreys, useAsBuilt } from "@/lib/scene/as-built";
 import { feasibilityOf, useFeasibility } from "@/lib/studio/feasibility";
 import { designMetrics, keyLabel, MAIN_USE_LABEL } from "@/lib/studio/metrics";
 import { entryName, type OptionEntry } from "@/lib/studio/options";
@@ -69,6 +70,41 @@ function columns(
   ];
 }
 
+/** What stands on the plot today, from map heights: the figures it has, dashes for the rest. */
+function asBuiltCells(asBuilt: AsBuilt, plotAreaM2: number): Record<string, string> {
+  return {
+    gfa: `≈ ${formatArea(asBuilt.estimatedFloorAreaM2)}`,
+    far: `≈ ${formatFar(asBuilt.estimatedFloorAreaM2 / plotAreaM2)}`,
+    height: formatLength(asBuilt.heightM),
+    storeys: `≈ ${formatInt(asBuiltStoreys(asBuilt.heightM))}`,
+  };
+}
+
+function AsBuiltRow({
+  asBuilt,
+  plotAreaM2,
+  cols,
+}: {
+  asBuilt: AsBuilt;
+  plotAreaM2: number;
+  cols: Column[];
+}) {
+  const cells = asBuiltCells(asBuilt, plotAreaM2);
+  return (
+    <tr className="border-t border-dashed text-muted-foreground" data-testid="compare-as-built">
+      <th scope="row" className="py-1.5 pr-2 pl-4 text-left font-normal italic">
+        As built, for comparison
+      </th>
+      {cols.map((c) => (
+        <td key={c.id} className="whitespace-nowrap px-2 py-1.5 text-right font-mono tabular">
+          {cells[c.id] ?? "–"}
+        </td>
+      ))}
+      <td className="py-1.5 pr-4 pl-2 text-right">–</td>
+    </tr>
+  );
+}
+
 const select = (entry: OptionEntry) =>
   useResultsView.getState().selectDesign(entry.id, entry.design?.envelope);
 
@@ -83,6 +119,7 @@ export function ComparisonStrip({
   const { scene, entries } = useOptions();
   const values = useFeasibility((s) => s.values);
   const selected = useResultsView((s) => s.selectedDesign);
+  const asBuilt = useAsBuilt();
   if (!scene || entries.length === 0) return null;
   const cols = columns(scene.input, values);
   const rows = entries.filter((e) => e.design);
@@ -195,6 +232,9 @@ export function ComparisonStrip({
                   </tr>
                 );
               })}
+              {asBuilt.buildings.length > 0 && (
+                <AsBuiltRow asBuilt={asBuilt} plotAreaM2={scene.result.plotAreaM2} cols={cols} />
+              )}
             </tbody>
           </table>
         </div>
