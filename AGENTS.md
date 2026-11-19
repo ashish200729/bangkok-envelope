@@ -81,7 +81,7 @@ Open interpretation calls (record your choice in `docs/decisions.md` if you touc
 
 - Corner plots: each point uses the road nearest to it for the height rule.
 - The user enters the legal road width (เขตทาง, property line to property line); OSM only suggests it.
-- Out of scope, and the UI must say so: EIA thresholds, waterway setbacks, aviation height limits, the 4th-revision draft.
+- Out of scope, and the UI must say so: waterway setbacks, aviation height limits, the 4th-revision draft. EIA is shown only as an informational "warn" line per design (a process step, not a refusal; screening sizes in `EIA_RULES`).
 
 ## 3. Architecture
 
@@ -118,7 +118,7 @@ The shared types every workstream builds against. Change them only with care: th
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `geo.ts`      | `LngLat` (GeoJSON order, lng first), `LinearRing` (closed), `Polygon` (outer CCW + holes), `MultiPolygon`, `closeRing`                                                                                                                    |
 | `inputs.ts`   | Zod schemas and inferred types: `EngineInput`, `Plot`, `PlotEdge`, `Road`, `Site`, `RuleToggles`, `ZoneCode` (`Y8`/`Y9`/`Y10`, Thai labels in `ZONES`), `BuildingType` (`condo`/`office`/`hotel`, `BUILDING_TYPE_INFO.residential`)       |
-| `law.ts`      | `LawId`, `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                                                                    |
+| `law.ts`      | `LawId` (incl. `eia`, the MNRE EIA notification), `LAWS` registry (titles, links), `Citation`, `formatCitation`                                                                                                                           |
 | `rules.ts`    | `RuleId`, `RULE_INFO` (label + unit for every rule; the compiler enforces completeness), `Unit`                                                                                                                                           |
 | `outputs.ts`  | `EngineResult` = `EngineSuccess` (`rules`, `envelopes: { lowRise, highRise }`, `highRise: HighRiseAccess`, `designs`) or `EngineFailure` (`error.code`), `Envelope`/`EnvelopeSlice`, `Design`/`Floor`, `Check`, `AppliedRule`, `Evaluate` |
 | `fixtures.ts` | `SAMPLE_INPUT`: an illustrative plot near Asok; the app's starting plot and the base for tests                                                                                                                                            |
@@ -137,26 +137,62 @@ type EngineSuccess = {
     highRise: Envelope | null; // 0 up: 6 m clearance on every side (or the road setback if larger), road plane
   };
   highRise: { allowed: boolean; checks: Check[]; maxGfaM2: number | null }; // null envelope ⇔ !allowed
-  designs: Design[];
+  designs: Design[]; // A "midrise", B "podium-tower", C "stepped", in that order; see below
 };
 type Envelope = { slices: EnvelopeSlice[]; maxHeightM: number; groundAreaM2: number };
 type EnvelopeSlice = { z0M: number; z1M: number; footprint: MultiPolygon; areaM2: number }; // valid for z0 ≤ z < z1
 // AppliedRule: { id, label, value, unit, source, affectsEnvelope, enabled, note? }
+type Design = {
+  id: "midrise" | "podium-tower" | "stepped";
+  name: string;
+  summary: string; // one plain sentence
+  envelope: "lowRise" | "highRise"; // the envelope it was fitted to and checked against
+  floors: Floor[]; // bottom to top; Floor = { level, z0M, heightM, use, outline: Polygon (lng/lat, closed), areaM2 }
+  heightM: number; // top of the last floor
+  gfaM2: number; // exactly Σ floors[].areaM2
+  farUsed: number;
+  footprintM2: number; // ground floor area
+  openSpaceM2: number; // plot − footprint
+  osrUsed: number; // openSpace ÷ GFA
+  useAreaM2: number; // main-use floors only (plan's "operating area")
+  keyCount: number | null; // condo units or hotel rooms; null for offices
+  parking: { requiredSpaces: number; providedSpaces: number };
+  checks: Check[]; // Check = { ruleId, label, status: pass|fail|warn|n/a, actual, limit, unit, source, message }
+  passes: boolean; // no check failed
+};
 ```
+
+A floor's outline is the largest connected piece of its plate. A floor never extends past the floor below.
 
 Engine core (built, phase 3). `evaluate` lives in `evaluate.ts`; the pieces a design generator needs are exported too:
 
-| File               | Contents                                                                                                                                                                      |
-| ------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `projection.ts`    | `makeProjection(origin)` → `toLocal` / `toLngLat` (equirectangular, WGS84 metres per degree), `ringCentroid`. Local `XY` is metres, x east, y north                           |
-| `plot.ts`          | `preparePlot`: project around the centroid, drop zero-length sides, validate (errors as values), make the ring CCW. `LocalEdge` keeps the input edge index                    |
-| `rules-data.ts`    | Every number with its citation: `ZONE_RULES`, `LAW`, `USE_SIZE_RULES`; `roadSetbackM`, `boundaryDistanceM`, `roadPlaneDistanceM`, `farLimit`, `sizeCapForUse`, `openSpaceMin` |
-| `setbacks.ts`      | `edgeDistances(edges, "lowRise" \| "highRise", z, toggles)`: how far each side's cut reaches at height z (data: a list of distance rules per envelope)                        |
-| `region.ts`        | `allowedRegion`: plot minus a stadium (true segment distance) per side, via Clipper2 at 0.1 mm; `Region` holds local polygons, area and Clipper paths                         |
-| `envelope.ts`      | `regionAt(plot, kind, z, toggles)`, `buildSlices` (1 m bands, merged when equal, stop under 1 m²), `toEnvelope`                                                               |
-| `high-rise.ts`     | `roadFrontages`, `assessHighRise` (MR 33 cl. 2 access, 30,000 m² cap, fits after clearance)                                                                                   |
-| `applied-rules.ts` | `appliedRules`: the rules panel list                                                                                                                                          |
-| `evaluate.ts`      | `analyseSite` (local-metre analysis for designs: plot, frontages, slices, high-rise access, region cache) and `evaluate`                                                      |
+| File               | Contents                                                                                                                                                                                |
+| ------------------ | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `projection.ts`    | `makeProjection(origin)` → `toLocal` / `toLngLat` (equirectangular, WGS84 metres per degree), `ringCentroid`. Local `XY` is metres, x east, y north                                     |
+| `plot.ts`          | `preparePlot`: project around the centroid, drop zero-length sides, validate (errors as values), make the ring CCW. `LocalEdge` keeps the input edge index                              |
+| `rules-data.ts`    | Every number with its citation: `ZONE_RULES`, `LAW`, `USE_SIZE_RULES`; `roadSetbackM`, `boundaryDistanceM`, `roadPlaneDistanceM`, `farLimit`, `sizeCapForUse`, `openSpaceMin`           |
+| `setbacks.ts`      | `edgeDistances(edges, "lowRise" \| "highRise", z, toggles)`: how far each side's cut reaches at height z (data: a list of distance rules per envelope)                                  |
+| `region.ts`        | `allowedRegion`: plot minus a stadium (true segment distance) per side, via Clipper2 at 0.1 mm; `Region` holds local polygons, area and Clipper paths                                   |
+| `envelope.ts`      | `regionAt(plot, kind, z, toggles)`, `buildSlices` (1 m bands, merged when equal, stop under 1 m²), `toEnvelope`                                                                         |
+| `high-rise.ts`     | `roadFrontages`, `assessHighRise` (MR 33 cl. 2 access, 30,000 m² cap, fits after clearance)                                                                                             |
+| `applied-rules.ts` | `appliedRules`: the rules panel list                                                                                                                                                    |
+| `evaluate.ts`      | `analyseSite` (local-metre analysis for designs: plot, frontages, slices, high-rise access, `highRiseGeometry` = high-rise slices as if the gate were off, region cache) and `evaluate` |
+| `format.ts`        | `formatNumber` (cached `Intl.NumberFormat`; `toLocaleString` per call was a measurable cost)                                                                                            |
+
+Designs (built, phase 5), in `designs/`:
+
+| File             | Contents                                                                                                                                                                            |
+| ---------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `assumptions.ts` | `DESIGN_ASSUMPTIONS`: every non-law number (floor heights, 27 m² per parking space, 45 m² units at 0.67, 70 m² per hotel key, tower plates…) with source and confidence; `keyCount` |
+| `parking.ts`     | `PARKING_RULES` (MR 7 cl. 3(1) rates), `spacesForUse`, `isLargeBuilding`, `requiredSpaces` (the larger of the use's rate and 1 per 120 m²)                                          |
+| `plates.ts`      | Clipper plate helpers: largest piece, intersect, `insetToArea` (even inward offset, binary search), `deepestPoint`, rectangles, `toPolygon`                                         |
+| `stack.ts`       | `Program` (ground use + whole parking floors), `PlateCache` (plates per slice, memoised), `steppedStack` (each floor = its top slice ∩ the floor below)                             |
+| `mid-rise.ts`    | Scheme A: straight block under 23 m, one outline (low-rise region at the block's top, capped to the open-ground footprint)                                                          |
+| `tower.ts`       | Scheme B: podium (lobby + parking) filling the high-rise region, tower rectangle chosen by `towerBase`                                                                              |
+| `stepped.ts`     | Scheme C: every floor as large as its own band allows                                                                                                                               |
+| `program.ts`     | `Limits`, `bestLayout` (tries footprints and parking-floor counts, solves use area + parking within the caps, trims the top floor)                                                  |
+| `checks.ts`      | `designChecks` (FAR, high-rise FAR ceiling, OSR, open ground, envelope fit measured by Clipper, height or high-rise access, use size, parking, EIA), `EIA_RULES`                    |
+| `index.ts`       | `limitsFor`, `buildDesigns`                                                                                                                                                         |
 
 Rules of the contract:
 
@@ -169,16 +205,16 @@ Rules of the contract:
 
 ### Engine algorithm
 
-Steps 1–4 are built (phase 3); 5–6 are next.
+Steps 1–4 are built (phase 3); 5–6 in phase 5 (decisions 27–33).
 
 1. Project the plot to local metres (equirectangular around the plot centroid; error < 0.01% at plot scale).
 2. Label each plot edge as road-facing (with its road width) or neighbour boundary.
 3. Rules as data: a zone table plus law constants, each value with `source`.
 4. Two envelopes as height slices. For each 1 m band [z0, z1), region = plot − ⋃ stadium(side i, d_i(z1)), where d_i is the largest distance that applies to that side at z1 (road setback, neighbour distance, high-rise clearance, and for road sides the height plane z/2 − width). Cuts only grow with height, so each band starts from the band below. A band uses its top height because that is its strictest point. See `docs/decisions.md` §18–§21.
-5. Designs: A = mid-rise inside `lowRise`; B = podium + tower inside `highRise` using full FAR; C (optional) = stepped massing. Each carries a floor schedule; GFA = sum of floor areas. Respect `highRise.maxGfaM2`, `farLimit(zone, bonus, highRise)` and `sizeCapForUse`.
-6. Checklist per design: value vs limit vs citation, pass / fail / warn. Open space (30% / 10% of plot, `openSpaceMin`) and OSR are design checks, not envelope cuts; the `openSpace` toggle only switches those checks.
+5. Designs: A = straight mid-rise block inside `lowRise`, below 23 m; B = podium + tower inside the high-rise geometry (built even when the site fails the access test, so its checklist shows why; dropped when it cannot reach 23 m); C = stepped massing in whichever allowed envelope holds more (dropped when it repeats A and B exists). Each carries a floor schedule; GFA = sum of floor areas. Caps: `farLimit(zone, bonus, highRise)`, 30,000 m² for a high-rise without an 18 m road (gate on), OSR (open ground ÷ GFA), the open-ground footprint (30% / 10%, when `openSpace` is on), `sizeCapForUse` (hotel rooms × 70 m²). Parking (whole floors, counted in GFA) must meet MR 7.
+6. Checklist per design: value vs limit vs citation, pass / fail / warn / n/a. Open space and OSR are design checks, not envelope cuts; a switched-off toggle makes its checks "n/a" ("Switched off"). Envelope fit is measured (Clipper difference against every slice a floor spans), not assumed. EIA is a "warn".
 
-Required tests: hand-checked rectangle (40 × 50 m on a 12 m road), concave and narrow plots, and property tests over random plots (every floor ⊂ its slice ⊂ plot; GFA ≤ FAR × area; open space + footprint = plot area).
+Required tests: hand-checked rectangle (40 × 50 m on a 12 m road), concave and narrow plots, and property tests over random plots (every floor ⊂ its slice ⊂ plot; GFA ≤ FAR × area; open space + footprint = plot area). Designs: `designs/designs.test.ts` checks these per design over 150 random plots (types, zones, bonuses, toggles), plus Σ floors = GFA, every cap, no overhangs, and the timing.
 
 ### Site data backend (built, phase 6)
 
@@ -301,4 +337,5 @@ Then:
 - Done: engine contract (phase 1): input schemas, result types, law registry, rule ids, sample input, 20 tests.
 - Done: map (phase 2): 3D map of the real site, draw and edit any plot shape, side roles and road widths, zone and building type inputs, on-plot buildings hidden, live engine input. 16 web unit tests, 7 map e2e tests.
 - Done: site data backend (phase 6): OSM snapshot of Asok in PostGIS (5,766 buildings, 1,691 roads, 7 stations), `/api/site/*` routes. Not yet consumed by the web app.
+- Done: engine designs and checklists (phase 5, engine side): three concept designs per plot with floor schedules and checklists; `evaluate` stays under ~20 ms on a 10-corner plot.
 - Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.

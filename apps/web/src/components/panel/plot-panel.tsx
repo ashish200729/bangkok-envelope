@@ -4,13 +4,11 @@ import {
   BUILDING_TYPE_INFO,
   BUILDING_TYPES,
   type BuildingType,
-  type LngLat,
   ZONE_CODES,
   ZONES,
   type ZoneCode,
 } from "@envelope/engine";
 import { Button } from "@envelope/ui/components/button";
-import { Input } from "@envelope/ui/components/input";
 import { Label } from "@envelope/ui/components/label";
 import {
   Select,
@@ -22,15 +20,18 @@ import {
 import { Separator } from "@envelope/ui/components/separator";
 import { cn } from "@envelope/ui/lib/utils";
 import { CircleAlert, CircleCheck, PencilLine, RotateCcw } from "lucide-react";
-import { type ReactNode, useEffect, useMemo, useRef } from "react";
-import { sideRole, type VertexId } from "@/lib/plot/draft";
+import { type ReactNode, useMemo } from "react";
+import { sideRole } from "@/lib/plot/draft";
 import { toEngineInput } from "@/lib/plot/engine-input";
 import { formatM, formatM2, formatThaiLandArea } from "@/lib/plot/format";
-import { areaM2, perimeterM, sideLengthsM } from "@/lib/plot/geometry";
+import { areaM2, perimeterM } from "@/lib/plot/geometry";
 import { usePlotStore } from "@/lib/plot/store";
+import { useSiteSync } from "@/lib/site/use-site-sync";
+import { RoadsList } from "./roads-list";
+import { SidesList } from "./sides-list";
+import { SiteAttribution, SiteStatus } from "./site-status";
+import { StationField } from "./station-field";
 
-const NEW_ROAD = "__new-road__";
-const BOUNDARY = "__boundary__";
 const TONE_TEXT = { pass: "text-pass", warn: "text-warn", fail: "text-fail" } as const;
 
 function Section({ title, children }: { title: string; children: ReactNode }) {
@@ -49,6 +50,7 @@ export function PlotPanel() {
   const roads = usePlotStore((s) => s.roads);
   const settings = usePlotStore((s) => s.settings);
   const mode = usePlotStore((s) => s.mode);
+  useSiteSync();
 
   const vertices = useMemo(() => draft.vertices.map((v) => v.lngLat), [draft.vertices]);
   const area = useMemo(() => areaM2(vertices), [vertices]);
@@ -100,6 +102,7 @@ export function PlotPanel() {
       <Separator />
 
       <Section title="Sides">
+        <SiteStatus />
         <SidesList vertices={vertices} />
       </Section>
 
@@ -151,30 +154,7 @@ export function PlotPanel() {
             </SelectContent>
           </Select>
         </div>
-        <div className="grid gap-1.5">
-          <Label htmlFor="station-distance">Distance to nearest BTS/MRT station</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id="station-distance"
-              type="number"
-              inputMode="numeric"
-              min={0}
-              step={10}
-              placeholder="Unknown"
-              value={settings.stationDistanceM ?? ""}
-              onChange={(e) => {
-                const value = e.target.value === "" ? null : Number(e.target.value);
-                if (value === null || (Number.isFinite(value) && value >= 0)) {
-                  usePlotStore.getState().setStationDistance(value);
-                }
-              }}
-            />
-            <span className="text-muted-foreground text-sm">m</span>
-          </div>
-          <p className="text-muted-foreground text-xs">
-            Within 500 m of a station, some size limits for offices and hotels are relaxed.
-          </p>
-        </div>
+        <StationField />
       </Section>
 
       <Separator />
@@ -199,6 +179,8 @@ export function PlotPanel() {
           <StatusLine tone="pass" text="Plot ready for the rules check." />
         )}
       </div>
+
+      <SiteAttribution />
     </div>
   );
 }
@@ -220,106 +202,6 @@ function StatusLine({
         <span>{text}</span>
       </p>
       {children}
-    </div>
-  );
-}
-
-function SidesList({ vertices }: { vertices: readonly LngLat[] }) {
-  const draft = usePlotStore((s) => s.draft);
-  const roads = usePlotStore((s) => s.roads);
-  const hovered = usePlotStore((s) => s.hoveredSide);
-  const selected = usePlotStore((s) => s.selectedSide);
-  const lengths = useMemo(() => sideLengthsM(vertices), [vertices]);
-  const rowRefs = useRef(new Map<VertexId, HTMLLIElement>());
-
-  useEffect(() => {
-    if (selected) rowRefs.current.get(selected)?.scrollIntoView({ block: "nearest" });
-  }, [selected]);
-
-  function onRoleChange(side: VertexId, value: string) {
-    const store = usePlotStore.getState();
-    if (value === NEW_ROAD) store.addRoadForSide(side);
-    else if (value === BOUNDARY) store.setSideRole(side, { kind: "boundary" });
-    else store.setSideRole(side, { kind: "road", roadId: value });
-    store.setSelectedSide(side);
-  }
-
-  return (
-    <ol className="grid gap-1" data-testid="sides">
-      {draft.vertices.map((v, i) => {
-        const role = sideRole(draft, v.id);
-        const active = v.id === hovered || v.id === selected;
-        return (
-          <li
-            key={v.id}
-            ref={(el) => {
-              if (el) rowRefs.current.set(v.id, el);
-              else rowRefs.current.delete(v.id);
-            }}
-            onMouseEnter={() => usePlotStore.getState().setHoveredSide(v.id)}
-            onMouseLeave={() => usePlotStore.getState().setHoveredSide(null)}
-            className={cn(
-              "grid grid-cols-[2rem_1fr_9.5rem] items-center gap-2 rounded-md px-2 py-1.5",
-              active && "bg-accent",
-            )}
-          >
-            <span className="font-mono text-muted-foreground text-xs tabular">{i + 1}</span>
-            <span className="font-mono text-sm tabular">{formatM(lengths[i] ?? 0)}</span>
-            <Select
-              value={role.kind === "road" ? role.roadId : BOUNDARY}
-              onValueChange={(value) => onRoleChange(v.id, value)}
-            >
-              <SelectTrigger size="sm" className="w-full" aria-label={`Side ${i + 1} faces`}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value={BOUNDARY}>Neighbour</SelectItem>
-                {roads.map((road) => (
-                  <SelectItem key={road.id} value={road.id}>
-                    {road.name ?? "Road"} ({road.widthM} m)
-                  </SelectItem>
-                ))}
-                <SelectItem value={NEW_ROAD}>New road…</SelectItem>
-              </SelectContent>
-            </Select>
-          </li>
-        );
-      })}
-    </ol>
-  );
-}
-
-function RoadsList() {
-  const roads = usePlotStore((s) => s.roads);
-  return (
-    <div className="grid gap-3">
-      {roads.map((road) => (
-        <div key={road.id} className="grid gap-1.5">
-          <Label htmlFor={`road-${road.id}`}>{road.name ?? "Road"} width</Label>
-          <div className="flex items-center gap-2">
-            <Input
-              id={`road-${road.id}`}
-              type="number"
-              inputMode="decimal"
-              min={1}
-              max={200}
-              step={0.5}
-              defaultValue={road.widthM}
-              onChange={(e) => {
-                const value = Number(e.target.value);
-                if (Number.isFinite(value) && value > 0 && value <= 200) {
-                  usePlotStore.getState().setRoadWidth(road.id, value);
-                }
-              }}
-            />
-            <span className="text-muted-foreground text-sm">m</span>
-          </div>
-        </div>
-      ))}
-      <p className="text-muted-foreground text-xs">
-        Legal road width (เขตทาง): from property line to property line, including footpaths and
-        drains.
-      </p>
     </div>
   );
 }

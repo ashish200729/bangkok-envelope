@@ -173,3 +173,16 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
       geometryRevision: s.geometryRevision + 1,
     })),
 }));
+
+/** Site data (lib/site): replaces sides and roads with an OSM suggestion applied to them. */
+export function updateSiteRoads(
+  update: (state: { draft: PlotDraft; roads: readonly Road[] }) => {
+    draft: PlotDraft;
+    roads: readonly Road[];
+  },
+) {
+  usePlotStore.setState((s) => {
+    const next = update(s);
+    return { draft: next.draft, roads: usedRoads(next.draft, next.roads) };
+  });
+}

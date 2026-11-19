@@ -95,6 +95,8 @@ export type Design = {
   id: DesignId;
   name: string;
   summary: string;
+  /** The envelope the design was fitted to and checked against. */
+  envelope: keyof Envelopes;
   /** Bottom to top. gfaM2 is the sum of their areaM2. */
   floors: readonly Floor[];
   heightM: number;

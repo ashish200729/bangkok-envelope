@@ -26,6 +26,7 @@ import { DrawHud } from "./draw-hud";
 import { createSceneLayers, type SceneLayersView } from "./envelope-layers";
 import { createMeasureLayers, type DrawProgress, NO_PROGRESS } from "./measure-layers";
 import { createSideLayers } from "./side-layers";
+import { createStudyAreaLayer } from "./study-area-layer";
 
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString());
 
@@ -106,6 +107,7 @@ export default function PlotMap() {
     const cleanups: (() => void)[] = [];
 
     map.on("load", () => {
+      cleanups.push(createStudyAreaLayer(map));
       const sides = createSideLayers(map, {
         onHover: (side) => store.getState().setHoveredSide(side),
         onSelect: (side) => store.getState().setSelectedSide(side),
