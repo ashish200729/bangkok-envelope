@@ -404,4 +404,4 @@ Then:
 - Done: engine designs and checklists (phase 5, engine side): three concept designs per plot with floor schedules and checklists; `evaluate` stays under ~20 ms on a 10-corner plot.
 - Done: editable designs, engine side: `Design.spec`, `buildCustomDesign` (same cut, measure and checks as the generated designs), retail and amenity floors, mixed-use parking and size caps, studio helpers (decisions 42–47).
 - Done: the design studio (decisions 53–57) and the minimal map-plus-inspector layout (decision 58).
-- Next: engine core (phase 3), then connect it to the map (phase 4: envelope in 3D with deck.gl), designs and checklist, wire site data into the map and panel, polish, deploy to Vercel.
+- Done: deployed to Vercel (decision 64), live at https://bangkok-envelope-taupe.vercel.app. Pushes to `main` deploy to production.

@@ -2,7 +2,7 @@
 
 A web tool that shows what can be built on a plot in Bangkok: the zoning and building rules that apply, the 3D space a building may fill, and concept designs with pass/fail checks, placed among the real surrounding buildings.
 
-Status: **starter template.** The home page is a temporary system status page that proves each layer works.
+**Live:** https://bangkok-envelope-taupe.vercel.app (no sign-in needed). Pushes to `main` deploy to production.
 
 ## Stack
 
