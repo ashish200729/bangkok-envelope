@@ -9,6 +9,7 @@ import {
   Map as MapLibreMap,
   NavigationControl,
   ScaleControl,
+  type StyleSpecification,
   setWorkerUrl,
 } from "maplibre-gl";
 import "maplibre-gl/dist/maplibre-gl.css";
@@ -26,6 +27,7 @@ import { useAsBuilt } from "@/lib/scene/as-built";
 import type { ViewAngle } from "@/lib/scene/clear-view";
 import { sceneTimestamp, useSceneView } from "@/lib/scene/view";
 import { useStudio } from "@/lib/studio/store";
+import { basemapStyle } from "./basemap-prefetch";
 import { applyBasemapStyle, type BasemapPalette, setNeighboursSeeThrough } from "./basemap-style";
 import { createBuildingHider } from "./building-hider";
 import { createDrawController, type DrawController } from "./draw-controller";
@@ -41,7 +43,6 @@ import { createStudyAreaLayer } from "./study-area-layer";
 
 setWorkerUrl(new URL("maplibre-gl/dist/maplibre-gl-worker.mjs", import.meta.url).toString());
 
-const STYLE_URL = "https://tiles.openfreemap.org/styles/liberty";
 const PITCH_3D = 55;
 /** The starting bearing; each plot then turns to its clearest view (lib/scene/clear-view.ts). */
 const BEARING_3D = 120;
@@ -188,7 +189,7 @@ export default function PlotMap() {
     try {
       map = new MapLibreMap({
         container: container.current,
-        style: STYLE_URL,
+        style: basemapStyle() as StyleSpecification | string,
         center: initial.draft.vertices[0]?.lngLat as [number, number] | undefined,
         zoom: 17,
         pitch: PITCH_3D,

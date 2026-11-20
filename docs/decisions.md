@@ -347,3 +347,15 @@ Reloading the page used to drop the user's plot and show the sample, which is th
 ## 64. Deployed to Vercel
 
 Project `bangkok-envelope` in the Ashish Studio team, Root Directory `apps/web`, functions in `sin1` next to the Neon database in Singapore, linked to the GitHub repository, so a push to `main` deploys to production. Production and Preview have only `DATABASE_URL` (the same Neon database as development, which already holds the migrations and the Asok site snapshot) and a new `BETTER_AUTH_SECRET`, not the development one. The auth origin comes from `VERCEL_PROJECT_PRODUCTION_URL` (decision 60). The e2e suite cannot run against production, because the map test hooks and `/status` exist only in development builds. The live site was checked instead with a browser probe (sample plot, rules, three schemes, money, no console errors) and `curl` on `/api/health`, guest sign-in and `/api/site/plot-context`.
+
+## 65. The basemap downloads start with the page
+
+Measured on the live site, the map waited on a chain of downloads, each starting only when the one before finished: the page, the 490 KB map bundle (MapLibre, deck.gl, Terra Draw), the Liberty style, the tile index, then the one 277 KB z14 vector tile every close view of the plot is cut from (gzipped already, sent once; Chrome joins MapLibre's 9–20 requests for it). The tile started about 2.9 s after navigation on a fast connection, later on a slow one. Once loaded the map is not the problem: 52–60 fps panning, zooming and orbiting with the CPU slowed 4×, and no draw calls at idle.
+
+Now:
+
+- The page head preconnects to `tiles.openfreemap.org` (TLS took 0.3–4 s on a poor network).
+- `plot-map-loader.tsx` starts the map bundle and `prefetchBasemap` (`components/map/basemap-prefetch.ts`) as soon as its module runs, not when the map first renders. The prefetch fetches the style and the tile index in parallel, then the z14 tile under the plot (the saved plot, else the sample; its neighbour too near a tile edge), the sprite and the three label fonts. MapLibre finds them in the HTTP cache or joins the download in flight. The map is created with the style object, tile index inlined, when it is ready; otherwise with the style URL, which is then a cache hit.
+- A restored plot that was clear when saved (`siteClear`) shows its results at once instead of waiting for the map's building check; if the map then finds buildings there, the hold still applies.
+
+Result on the same network: every basemap request starts about 0.1 s after navigation and the plot's tile about 1 s, instead of about 2.9 s. The tile's own download time is the tile service's and the network's. Not done: splitting deck.gl out of the map bundle (it parses in about 0.3 s at 4× CPU slowdown, while the tile download takes longer) and self-hosting tiles.

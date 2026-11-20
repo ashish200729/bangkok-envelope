@@ -5,6 +5,7 @@ import { cn } from "@envelope/ui/lib/utils";
 import type { Metadata, Viewport } from "next";
 import { IBM_Plex_Mono, IBM_Plex_Sans, IBM_Plex_Sans_Thai } from "next/font/google";
 import type { ReactNode } from "react";
+import { preconnect } from "react-dom";
 import { ThemeProvider } from "@/components/theme-provider";
 
 const sans = IBM_Plex_Sans({
@@ -40,6 +41,9 @@ export const viewport: Viewport = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // The basemap's style, tiles and fonts all come from here; open the connection (DNS and TLS,
+  // which can take seconds on a slow network) while the page's own scripts load.
+  preconnect("https://tiles.openfreemap.org", { crossOrigin: "anonymous" });
   return (
     <html
       lang="en"

@@ -9,6 +9,7 @@ import { z } from "zod";
 import type { PlotDraft, SideRole, VertexId } from "./draft";
 import type { PlotSettings } from "./engine-input";
 import { usePlotStore } from "./store";
+import { currentSiteHold } from "./use-site-hold";
 
 /**
  * The plot the user was working on, kept in this browser so a reload brings it back: corners,
@@ -40,6 +41,8 @@ const storedPlotSchema = z.object({
     toggles: ruleTogglesSchema,
   }),
   demolitionConfirmed: z.boolean(),
+  /** The plot had been checked and nothing on it held results. Missing in older entries. */
+  siteClear: z.boolean().optional(),
 });
 
 export type StoredPlot = {
@@ -47,6 +50,7 @@ export type StoredPlot = {
   roads: z.infer<typeof roadSchema>[];
   settings: PlotSettings;
   demolitionConfirmed: boolean;
+  siteClear: boolean;
 };
 
 export function parseStoredPlot(raw: string | null): StoredPlot | null {
@@ -54,7 +58,7 @@ export function parseStoredPlot(raw: string | null): StoredPlot | null {
   try {
     const parsed = storedPlotSchema.safeParse(JSON.parse(raw));
     if (!parsed.success) return null;
-    const { vertices, sides, roads, settings, demolitionConfirmed } = parsed.data;
+    const { vertices, sides, roads, settings, demolitionConfirmed, siteClear } = parsed.data;
     const ids = new Set(vertices.map((v) => v.id));
     if (ids.size !== vertices.length) return null;
     return {
@@ -69,6 +73,7 @@ export function parseStoredPlot(raw: string | null): StoredPlot | null {
       roads,
       settings,
       demolitionConfirmed,
+      siteClear: siteClear ?? false,
     };
   } catch {
     return null;
@@ -82,12 +87,22 @@ export function serializePlot(plot: StoredPlot): string {
     roads: plot.roads,
     settings: plot.settings,
     demolitionConfirmed: plot.demolitionConfirmed,
+    siteClear: plot.siteClear,
   });
 }
 
 function storage(): Storage | null {
   try {
     return typeof window === "undefined" ? null : window.localStorage;
+  } catch {
+    return null;
+  }
+}
+
+/** The saved plot, without restoring it. Browser only; null when there is none. */
+export function readStoredPlot(): StoredPlot | null {
+  try {
+    return parseStoredPlot(storage()?.getItem(PLOT_STORAGE_KEY) ?? null);
   } catch {
     return null;
   }
@@ -100,12 +115,7 @@ function storage(): Storage | null {
 export function startPlotPersistence(): () => void {
   const store = storage();
   if (!store) return () => {};
-  let saved: StoredPlot | null = null;
-  try {
-    saved = parseStoredPlot(store.getItem(PLOT_STORAGE_KEY));
-  } catch {
-    saved = null;
-  }
+  const saved = readStoredPlot();
   let fallback: ReturnType<typeof setTimeout> | null = null;
   if (saved) {
     usePlotStore.getState().restorePlot(saved);
@@ -126,6 +136,7 @@ export function startPlotPersistence(): () => void {
           roads: s.roads,
           settings: s.settings,
           demolitionConfirmed: s.demolitionConfirmed,
+          siteClear: s.siteCheck === "done" && !currentSiteHold().held,
         }),
       );
     } catch {
@@ -138,6 +149,7 @@ export function startPlotPersistence(): () => void {
       s.roads === prev.roads &&
       s.settings === prev.settings &&
       s.demolitionConfirmed === prev.demolitionConfirmed &&
+      s.siteCheck === prev.siteCheck &&
       s.mode === prev.mode
     ) {
       return;

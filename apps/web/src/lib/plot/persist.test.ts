@@ -8,6 +8,7 @@ const current = () => ({
   roads: store().roads,
   settings: store().settings,
   demolitionConfirmed: store().demolitionConfirmed,
+  siteClear: true,
 });
 
 beforeEach(() => store().resetToSample());
@@ -22,13 +23,28 @@ describe("the saved plot", () => {
   });
 
   it("restores into the store and asks the map to reload it", () => {
-    const saved = parseStoredPlot(serializePlot({ ...current(), demolitionConfirmed: false }));
+    const saved = parseStoredPlot(
+      serializePlot({ ...current(), demolitionConfirmed: false, siteClear: false }),
+    );
     if (!saved) throw new Error("parses");
     const revision = store().geometryRevision;
     store().restorePlot(saved);
     expect(store().geometryRevision).toBe(revision + 1);
     expect(store().siteCheck).toBe("checking");
     expect(store().draft.vertices).toHaveLength(saved.draft.vertices.length);
+  });
+
+  it("waits for the building check only when the plot was not found clear", () => {
+    const clear = parseStoredPlot(serializePlot(current()));
+    const unchecked = parseStoredPlot(serializePlot({ ...current(), siteClear: false }));
+    if (!clear || !unchecked) throw new Error("parses");
+    store().restorePlot(clear);
+    expect(store().siteCheck).toBe("done");
+    store().restorePlot(unchecked);
+    expect(store().siteCheck).toBe("checking");
+    const older = JSON.parse(serializePlot(current()));
+    delete older.siteClear;
+    expect(parseStoredPlot(JSON.stringify(older))?.siteClear).toBe(false);
   });
 
   it("is ignored when it is broken, from an older shape or not JSON", () => {

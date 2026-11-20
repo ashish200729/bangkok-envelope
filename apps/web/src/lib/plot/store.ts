@@ -64,6 +64,8 @@ type PlotActions = {
     roads: readonly Road[];
     settings: PlotSettings;
     demolitionConfirmed: boolean;
+    /** Checked before and nothing on it held results: show them without waiting for the map. */
+    siteClear?: boolean;
   }) => void;
 };
 
@@ -207,8 +209,9 @@ export const usePlotStore = create<PlotState & PlotActions>()((set) => ({
       roads: usedRoads(plot.draft, plot.roads),
       settings: plot.settings,
       demolitionConfirmed: plot.demolitionConfirmed,
-      // An unconfirmed plot waits for the map to say what stands on it, as after drawing.
-      siteCheck: plot.demolitionConfirmed ? "done" : "checking",
+      // An unconfirmed plot waits for the map to say what stands on it, as after drawing, unless
+      // it was already found clear. If the map now finds buildings there, the hold still applies.
+      siteCheck: plot.demolitionConfirmed || plot.siteClear ? "done" : "checking",
       mode: "edit",
       hoveredSide: null,
       selectedSide: null,
